@@ -1,73 +1,135 @@
-# React + TypeScript + Vite
+# 📅 Calendar App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A full-stack calendar application with event management, roles-based notes, and an admin panel.
 
-Currently, two official plugins are available:
+## 🚀 Quick Start
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Prerequisites
+- **Node.js** (v18 or higher)
+- **npm** (comes with Node.js)
 
-## React Compiler
+### Installation
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+# 1. Clone/copy the project
+cd /path/to/calendar-app
 
-## Expanding the ESLint configuration
+# 2. Install frontend dependencies
+npm install
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# 3. Install server dependencies
+cd server && npm install && cd ..
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Running the App
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+**Option A: Run both in separate terminals**
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+# Terminal 1 - Start the backend server
+cd server && node index.js
+# Server runs at http://localhost:3001
+
+# Terminal 2 - Start the frontend
+npm run dev
+# Frontend runs at http://localhost:5173
 ```
+
+**Option B: Quick start script (run from project root)**
+
+```bash
+# Start server in background, then frontend
+cd server && node index.js & cd .. && npm run dev
+```
+
+---
+
+## 🔄 Patch Production Copy (keep DB/uploads)
+
+- Default production path is `/Users/digogonz/Desktop/Calendario/cal-ap`.
+- One-shot deploy: run `bash scripts/deploy_to_prod.sh` from the dev root. It syncs code, installs deps in the prod copy (frontend + server), and leaves DB/uploads untouched.
+- Dry run: `DRY_RUN=1 bash scripts/deploy_to_prod.sh` (only previews rsync).
+- Skip installs: `SKIP_INSTALL=1 bash scripts/deploy_to_prod.sh` (sync only).
+- Override prod path: `PROD_DIR=/custom/path bash scripts/deploy_to_prod.sh`.
+- Under the hood it uses `scripts/patch_to_prod.sh`, which protects `server/calendar.db*`, `server/uploads/`, and root `uploads/`; stale code is cleaned with `--delete`.
+- After a deploy, restart the production services if they are running.
+
+---
+
+## 🔗 URLs
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| Frontend | http://localhost:5173 | Main calendar app |
+| Admin Panel | http://localhost:3001 | Database administration |
+
+---
+
+## 🔧 Fresh Start (Clean Database)
+
+To start with a completely fresh database:
+
+```bash
+# Remove database files
+rm -f server/calendar.db server/calendar.db-shm server/calendar.db-wal
+
+# Optional: Clear uploaded files
+rm -rf server/uploads/*
+
+# Restart the server (creates fresh DB)
+cd server && node index.js
+```
+
+---
+
+## 👤 First Admin User
+
+When starting fresh, create an admin user:
+
+1. Register a new user via the frontend at http://localhost:5173
+2. Access the admin panel at http://localhost:3001
+3. The first user can be promoted to admin by editing the database
+
+Or use the seeded admin account (if available):
+- **Username:** `admin`
+- **Password:** `admin123`
+
+---
+
+## 📁 Project Structure
+
+```
+calendar-app/
+├── src/                    # Frontend React code
+│   ├── components/         # UI components
+│   ├── store/              # Zustand state management
+│   └── utils/              # Utility functions
+├── server/                 # Backend Node.js server
+│   ├── index.js            # Main server file
+│   ├── static_admin/       # Admin panel HTML
+│   ├── uploads/            # Uploaded files
+│   └── calendar.db         # SQLite database
+├── package.json            # Frontend dependencies
+└── README.md               # This file
+```
+
+---
+
+## 🛠️ Tech Stack
+
+- **Frontend:** React, Vite, Zustand, TailwindCSS
+- **Backend:** Node.js, Express, SQLite3
+- **Auth:** JWT (JSON Web Tokens)
+
+---
+
+## 📝 Features
+
+- ✅ Calendar with event management
+- ✅ Role-based notes system
+- ✅ User authentication (login/register)
+- ✅ Admin panel with full CRUD
+- ✅ File uploads in notes
+- ✅ Markdown support in notes
+- ✅ Multi-user support
+- ✅ Friend calendar sharing

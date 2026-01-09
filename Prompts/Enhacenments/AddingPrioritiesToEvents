@@ -1,0 +1,9 @@
+
+1.
+lets add a functionaly for stablishing priroirty to the events. So that when creating/editing an event there is a
+  field to ingress an integer (priority). The priority should also be displayed together with the time of the day. The
+  order of the displayment on the calendar (withhout selected just the superficial display) is still by hour. However
+  when selecting a day (thus opening the pop-up window) in the pop-up window there should be configuration setting
+  mechansim for determinig the order criteria (by hour or priority). A configuration setting mechanism should also
+  exist in both of the displayings below the calendar (the one for edit/delete) and the one for ranges. Please do
+

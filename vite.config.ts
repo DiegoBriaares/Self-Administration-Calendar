@@ -5,6 +5,23 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   build: {
-    target: 'es2020'
+    target: 'es2020',
+    // Force new file names on each build to bust cache
+    rollupOptions: {
+      output: {
+        entryFileNames: `assets/[name]-[hash].js`,
+        chunkFileNames: `assets/[name]-[hash].js`,
+        assetFileNames: `assets/[name]-[hash].[ext]`
+      }
+    }
+  },
+  server: {
+    host: true,
+    // Disable caching in dev mode
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    }
   }
 })
