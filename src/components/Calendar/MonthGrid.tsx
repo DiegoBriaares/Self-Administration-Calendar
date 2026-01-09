@@ -22,42 +22,65 @@ export const MonthGrid: React.FC<MonthGridProps> = ({
     isSelecting
 }) => {
     const days = getMonthGrid(year, month);
-    const { events, selection } = useCalendarStore();
+    const { events, selection, compareMode, compareEvents } = useCalendarStore();
     const currentMonthDate = new Date(year, month);
 
     return (
-        <div className="relative flex flex-col bg-[#0c0f14] border border-white/10 p-1">
+        <div className="relative flex flex-col calendar-panel p-4 rounded-2xl">
             {/* Technical Header */}
-            <div className="flex justify-between items-end border-b border-white/10 pb-4 mb-4 px-2">
+            <div className="calendar-panel__head pb-4 mb-4 px-2">
                 <div>
-                    <div className="text-[10px] text-slate-500 font-mono tracking-widest mb-1">SECTOR {month + 1}</div>
-                    <h3 className="text-2xl text-[#d4af37] uppercase tracking-widest">
+                    <div className="text-[10px] text-stone-500 font-mono tracking-widest mb-1">SECTOR {month + 1}</div>
+                    <h3 className="text-2xl text-orange-600 uppercase tracking-widest">
                         {formatMonthYear(currentMonthDate)}
                     </h3>
                 </div>
                 <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-[#d4af37] rounded-full opacity-50"></div>
-                    <div className="w-2 h-2 border border-[#d4af37] rounded-full opacity-50"></div>
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    <div className="w-2 h-2 border border-orange-400 rounded-full"></div>
                 </div>
             </div>
 
             {/* Grid Header */}
-            <div className="grid grid-cols-7 border-b border-white/10 mb-1">
+            <div className="grid grid-cols-7 calendar-panel__rowhead mb-1">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                    <div key={day} className="text-center text-[10px] text-slate-500 font-mono uppercase py-2 border-r border-white/5 last:border-r-0">
+                    <div key={day} className="text-center text-[10px] text-stone-500 font-mono uppercase py-2 border-r border-orange-100 last:border-r-0 font-medium">
                         {day}
                     </div>
                 ))}
             </div>
 
             {/* Grid Body */}
-            <div className="grid grid-cols-7 auto-rows-fr gap-[1px] bg-white/10 border border-white/5">
+            <div className="grid grid-cols-7 auto-rows-fr gap-[1px] calendar-grid rounded-lg overflow-hidden">
                 {days.map((date) => {
                     const dateStr = formatDate(date);
-                    const dayEvents = events[dateStr] || [];
+                    // Normalize to unique events (id) and sort by time then title to keep preview aligned with actual day data.
+                    const dayEvents = (() => {
+                        const raw = events[dateStr] || [];
+                        const deduped = raw.filter((ev, idx, arr) => arr.findIndex((e) => e.id === ev.id) === idx);
+                        return deduped.sort((a, b) => {
+                            const hasTimeA = !!(a.startTime && a.startTime.trim() !== '');
+                            const hasTimeB = !!(b.startTime && b.startTime.trim() !== '');
+                            if (hasTimeA && hasTimeB) {
+                                const tA = a.startTime || '';
+                                const tB = b.startTime || '';
+                                if (tA !== tB) return tA.localeCompare(tB);
+                                return a.title.localeCompare(b.title);
+                            }
+                            if (hasTimeA !== hasTimeB) return hasTimeA ? -1 : 1;
+                            const pA = a.priority ?? Number.MAX_SAFE_INTEGER;
+                            const pB = b.priority ?? Number.MAX_SAFE_INTEGER;
+                            if (pA !== pB) return pA - pB;
+                            return a.title.localeCompare(b.title);
+                        });
+                    })();
+                    const ghostEvents = compareMode ? (compareEvents[dateStr] || []) : [];
                     const isSelected = isDateInRange(date, selection.start, selection.end);
                     const isCurrentMonth = isSameMonth(date, currentMonthDate);
                     const isDayToday = isToday(date);
+
+                    const bgUrl = useCalendarStore.getState().dayBackgrounds[dateStr];
+                    const dailyFact = useCalendarStore.getState().dailyFacts[dateStr];
 
                     return (
                         <div
@@ -66,70 +89,93 @@ export const MonthGrid: React.FC<MonthGridProps> = ({
                             onDoubleClick={() => onDateDoubleClick?.(date)}
                             onMouseEnter={() => isSelecting && onDateEnter(date)}
                             className={clsx(
-                                "min-h-[120px] relative p-2 transition-colors duration-200 group bg-[#0c0f14]",
-                                !isCurrentMonth && "opacity-25 bg-[#080a0d]",
-                                isSelected && "bg-[#d4af37]/10",
-                                isDayToday && !isSelected && "bg-white/5"
+                                "calendar-cell min-h-[120px] relative p-2 transition-all duration-200 group",
+                                !isCurrentMonth && "cell-faded",
+                                isSelected ? "cell-selected" : "cell-default",
+                                isDayToday && !isSelected && "cell-today"
                             )}
+                            style={bgUrl ? {
+                                backgroundImage: `linear-gradient(rgba(255,255,255,0.5), rgba(255,255,255,0.5)), url(${bgUrl})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center'
+                            } : undefined}
                         >
                             {/* Crosshairs for precision */}
-                            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-orange-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-orange-300 opacity-0 group-hover:opacity-100 transition-opacity" />
 
                             {/* Date Number */}
                             <div className="flex justify-between items-start mb-2">
                                 <span className={clsx(
                                     "text-xs font-mono",
-                                    isDayToday ? "text-[#d4af37] font-bold" : "text-slate-500",
-                                    isSelected && "text-[#d4af37]"
+                                    isDayToday ? "text-orange-600 font-bold" : "text-stone-600",
+                                    isSelected && "text-orange-700 font-semibold"
                                 )}>
                                     {String(date.getDate()).padStart(2, '0')}
                                 </span>
-                                {dayEvents.length > 0 && (
-                                    <span className="text-[9px] text-slate-600 font-mono">
-                                        [{dayEvents.length}]
-                                    </span>
-                                )}
+                                <div className="flex gap-1">
+                                    {dayEvents.length > 0 && (
+                                        <span className="text-[9px] text-stone-500 font-mono bg-stone-100 px-1 rounded event-count">
+                                            [{dayEvents.length}]
+                                        </span>
+                                    )}
+                                    {ghostEvents.length > 0 && (
+                                        <span className="text-[9px] text-orange-400 font-mono border border-orange-200 px-1 rounded">
+                                            +{ghostEvents.length}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
 
-                            {/* Events - Technical Blocks */}
+                            {/* Events - Colorful Blocks */}
                             <div className="flex flex-col gap-1">
                                 {dayEvents.map((event, idx) => (
                                     <div
                                         key={event.id}
                                         className={clsx(
-                                            "text-[10px] font-mono truncate px-1 py-1 border-l-2 transition-all",
-                                            "bg-white/5 hover:bg-white/10",
-                                            idx % 3 === 0 && "border-cyan-500/50 text-cyan-200/80",
-                                            idx % 3 === 1 && "border-purple-500/50 text-purple-200/80",
-                                            idx % 3 === 2 && "border-emerald-500/50 text-emerald-200/80",
+                                            "event-chip text-[10px] font-mono px-1.5 py-1 rounded transition-all w-fit",
+                                            idx % 3 === 0 && "event-chip-cyan",
+                                            idx % 3 === 1 && "event-chip-purple",
+                                            idx % 3 === 2 && "event-chip-emerald",
                                         )}
                                     >
+                                        <span className="text-[9px] bg-white/80 px-2 rounded shadow-sm time-pill block">
+                                            {(event.startTime && event.startTime.trim() !== '' ? event.startTime : '--:--')} · {event.priority !== null && event.priority !== undefined ? `P${event.priority}` : '--'}
+                                        </span>
+                                    </div>
+                                ))}
+
+                                {/* Ghost Events (My Events) for Comparison */}
+                                {ghostEvents.map((event) => (
+                                    <div
+                                        key={`ghost-${event.id}`}
+                                        className="text-[10px] font-mono truncate px-1.5 py-1 rounded-r border border-orange-200/50 text-stone-400 bg-white/40"
+                                        title="Your Event (Ghost View)"
+                                    >
                                         <div className="flex items-center justify-between gap-2">
-                                            <span className="truncate">{event.title}</span>
-                                            {event.startTime ? (
-                                                <span className="text-[9px] text-slate-300 bg-white/10 px-1 rounded">{event.startTime}</span>
-                                            ) : (
-                                                <span className="text-[9px] text-slate-500 bg-white/5 px-1 rounded">--:--</span>
-                                            )}
+                                            <span className="truncate opacity-60">{event.title}</span>
+                                            <span className="text-[9px] bg-stone-50/50 px-1 rounded time-pill opacity-60">
+                                                {(event.startTime && event.startTime.trim() !== '' ? event.startTime : '--:--')} · {event.priority !== null && event.priority !== undefined ? `P${event.priority}` : '--'}
+                                            </span>
                                         </div>
-                                        {event.link && (
-                                            <a href={event.link} target="_blank" rel="noreferrer" className="text-[9px] text-sky-300 underline">
-                                                link
-                                            </a>
-                                        )}
-                                        {event.note && (
-                                            <div className="text-[9px] text-slate-400 truncate">{event.note}</div>
-                                        )}
                                     </div>
                                 ))}
                             </div>
 
                             {/* Selection Overlay */}
                             {isSelected && (
-                                <div className="absolute inset-0 border border-[#d4af37]/30 pointer-events-none">
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[1px] bg-[#d4af37]/10" />
-                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-full w-[1px] bg-[#d4af37]/10" />
+                                <div className="absolute inset-0 border-2 border-orange-400 pointer-events-none rounded selection-overlay">
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-[1px] bg-orange-300/50" />
+                                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-full w-[1px] bg-orange-300/50" />
+                                </div>
+                            )}
+
+                            {/* Daily Fact Snippet */}
+                            {dailyFact && (
+                                <div className="absolute bottom-1 right-1 max-w-[90%] flex justify-end">
+                                    <div className="text-[8px] text-stone-500 bg-white/60 p-0.5 px-1.5 rounded-full border border-stone-200/50 truncate italic shadow-sm hover:max-w-none hover:w-auto hover:z-10 cursor-help" title={dailyFact}>
+                                        {dailyFact}
+                                    </div>
                                 </div>
                             )}
                         </div>
