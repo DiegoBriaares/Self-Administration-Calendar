@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { formatDate } from '../utils/dateUtils';
+import { normalizePriority } from '../utils/priorityUtils';
 import { eachDayOfInterval } from 'date-fns';
 
 // Polyfill for crypto.randomUUID if not available (e.g. older Safari)
@@ -11,37 +12,50 @@ if (!crypto.randomUUID) {
     };
 }
 
-const safeParse = <T>(value: string | null): T | null => {
-    if (!value) return null;
-    try {
-        return JSON.parse(value) as T;
-    } catch {
-        return null;
-    }
-};
-
 export interface CalendarEvent {
     id: string;
     title: string;
     date: string;
     startTime?: string | null;
+    priority?: number | null;
     note?: string | null;
     link?: string | null;
-    version?: number; // Optimistic locking version
-    resources?: string | null; // JSON string of Resource[]
-    unlockDate?: string | null; // ISO Date string
 }
 
-export interface Resource {
+export interface Role {
     id: string;
-    type: 'link' | 'text' | 'image';
-    content: string;
-    title?: string;
+    label: string;
+    color?: string | null;
+    is_enabled?: number;
+    order_index?: number;
 }
 
-export interface DailyFact {
+export interface AppConfig {
+    app_title?: string;
+    app_subtitle?: string;
+    console_title?: string;
+    config_version?: string;
+    [key: string]: string | undefined;
+}
+
+export interface AdminEvent {
+    id: string;
+    title: string;
     date: string;
-    content: string;
+    startTime?: string | null;
+    priority?: number | null;
+    note?: string | null;
+    link?: string | null;
+    userId?: string;
+    username?: string;
+}
+
+export interface AdminUser {
+    id: string;
+    username: string;
+    isAdmin?: boolean;
+    avatarUrl?: string | null;
+    eventCount?: number;
 }
 
 interface User {
@@ -52,25 +66,9 @@ interface User {
     isAdmin?: boolean;
 }
 
-export interface AppConfig {
-    app_title: string;
-    app_subtitle: string;
-    console_title: string;
-    [key: string]: string;
-}
-
 interface Selection {
     start: Date | null;
     end: Date | null;
-}
-
-export interface AdminEvent extends CalendarEvent {
-    userId: string;
-    username: string;
-}
-
-export interface AdminUser extends User {
-    eventCount?: number;
 }
 
 interface CalendarState {
@@ -78,11 +76,7 @@ interface CalendarState {
     user: User | null;
     token: string | null;
     isLoading: boolean;
-    bootstrapped: boolean;
-    bootError: string | null;
-    bootstrap: () => Promise<void>;
     error: string | null;
-    localPreferences: UserPreferences | null;
     login: (u: string, p: string) => Promise<void>;
     register: (u: string, p: string) => Promise<void>;
     logout: () => void;
@@ -97,37 +91,25 @@ interface CalendarState {
     viewingUsername: string | null;
     viewingPreferences: UserPreferences | null;
     profile: User | null;
+    localPreferences: UserPreferences | null;
     currentView: 'calendar' | 'profile' | 'friends' | 'admin';
-    appConfig: AppConfig | null;
-
-    adminEvents: AdminEvent[];
-    adminUsers: AdminUser[];
-    adminError: string | null;
-    fetchAdminEvents: (userId?: string) => Promise<void>;
-    adminDeleteEvents: (ids: string[]) => Promise<boolean>;
-    fetchAdminUsers: () => Promise<void>;
-    adminDeleteUsers: (ids: string[]) => Promise<boolean>;
-
-    fetchAppConfig: () => Promise<void>;
-    updateAppConfig: (config: AppConfig) => Promise<boolean>;
-
-    navigateToProfile: () => void;
-    navigateToFriends: () => void;
-    navigateToCalendar: () => void;
-    navigateToAdmin: () => void;
 
     setSelection: (start: Date | null, end: Date | null) => void;
     setSelectionActive: (active: boolean) => void;
     fetchEvents: () => Promise<void>;
     fetchFriendEvents: (friendId: string, friendName: string) => Promise<void>;
     viewOwnCalendar: () => Promise<void>;
-    addEventsToRange: (entries: Array<{ title: string; time?: string; startTime?: string; link?: string; note?: string }>) => Promise<void>;
-    addEvent: (date: Date, entry: { title: string; time?: string; startTime?: string; link?: string; note?: string }) => Promise<void>;
-    copyEventsToDate: (sourceDate: string, targetDate: string, eventIds?: string[]) => Promise<void>;
+    addEvent: (date: Date, entry: { title: string; time?: string; startTime?: string; link?: string; note?: string; priority?: number | string | null }) => Promise<void>;
+    addEventsToRange: (entries: Array<{ title: string; time?: string; startTime?: string; link?: string; note?: string; priority?: number | string | null }>) => Promise<void>;
     deleteEvent: (id: string) => Promise<void>;
     editEvent: (event: CalendarEvent) => Promise<void>;
     setViewDate: (date: Date) => void;
     clearSelection: () => void;
+    setLocalPreferences: (prefs: Partial<UserPreferences> & { _updatedAt?: number }) => void;
+    navigateToProfile: () => void;
+    navigateToFriends: () => void;
+    navigateToCalendar: () => void;
+    navigateToAdmin: () => void;
 
     // Social
     users: User[];
@@ -138,95 +120,53 @@ interface CalendarState {
     addFriend: (id: string) => Promise<void>;
     removeFriend: (id: string) => Promise<void>;
     fetchProfile: () => Promise<void>;
-    updateProfile: (prefs: Partial<UserPreferences> & { avatar_url?: string | null, username?: string }) => Promise<void>;
-    setLocalPreferences: (prefs: Partial<UserPreferences>) => void;
-    // Daily Facts
-    dailyFacts: Record<string, string>; // date -> content
-    fetchDailyFact: (date: string) => Promise<void>;
-    saveDailyFact: (date: string, content: string) => Promise<void>;
+    updateProfile: (prefs: Partial<UserPreferences> & { avatar_url?: string | null; username?: string }) => Promise<void>;
 
-    // Generic Admin Data
-    fetchTableData: (table: string) => Promise<any[]>;
-
-    // Smart Overlaps
-    compareMode: boolean;
-    compareEvents: Record<string, CalendarEvent[]>;
-    toggleCompare: () => Promise<void>;
-
-    // Visuals (Phase 4)
-    dayBackgrounds: Record<string, string>; // date -> imageUrl
+    // Visuals
+    dailyFacts: Record<string, string>;
+    dayBackgrounds: Record<string, string>;
     fetchMonthVisuals: (start: string, end: string) => Promise<void>;
+    saveDailyFact: (date: string, content: string) => Promise<void>;
     saveDayBackground: (date: string, imageUrl: string) => Promise<void>;
 
     // Roles & Notes
     roles: Role[];
     fetchRoles: () => Promise<void>;
-    manageRoles: (action: 'create' | 'update' | 'delete', data: Partial<Role>) => Promise<boolean>;
-    reorderRoles: (orderedIds: string[]) => Promise<boolean>;
-
-    eventNotes: Record<string, Record<string, string>>; // eventId -> { roleId -> content }
+    manageRoles: (action: 'create' | 'update' | 'delete', payload: { id?: string; label?: string; color?: string }) => Promise<void>;
+    reorderRoles: (orderedIds: string[]) => Promise<void>;
+    eventNotes: Record<string, Record<string, string>>;
     fetchEventNotes: (eventId: string) => Promise<void>;
     saveEventNote: (eventId: string, roleId: string, content: string) => Promise<boolean>;
     uploadFile: (file: File) => Promise<string | null>;
+
+    // Compare
+    compareMode: boolean;
+    compareEvents: Record<string, CalendarEvent[]>;
+    toggleCompare: () => void;
+
+    // Admin
+    appConfig: AppConfig | null;
+    fetchAppConfig: () => Promise<void>;
+    updateAppConfig: (config: AppConfig) => Promise<boolean>;
+    bootstrap: () => Promise<void>;
+    adminEvents: AdminEvent[];
+    fetchAdminEvents: (userId?: string) => Promise<void>;
+    adminDeleteEvents: (ids: string[]) => Promise<boolean>;
+    adminUsers: AdminUser[];
+    fetchAdminUsers: () => Promise<void>;
+    adminDeleteUsers: (ids: string[]) => Promise<boolean>;
+    fetchTableData: (table: 'roles' | 'event_notes') => Promise<any[]>;
 }
 
-export interface Role {
-    id: string;
-    label: string;
-    color: string;
-    description?: string;
-    is_enabled: boolean;
-    order_index?: number;
-}
-
-export interface EventNote {
-    event_id: string;
-    role_id: string;
-    content: string;
-    updated_at: number;
-}
-
-// ... existing code ...
-
-export interface UserPreferences {
-    backgroundUrl?: string;
-    accentColor?: string;
-    noiseOverlay?: boolean;
-    theme?: 'light' | 'dark';
-    config?: Partial<AppConfig>;
-    _updatedAt?: number;
-}
-
-const getApiUrl = () => {
-    // If we are running on port 3001 (served by backend), use relative path (same origin)
-    if (window.location.port === '3001') return '';
-
-    // If we are running on dev port (5173) or any other, point to port 3001 on the same hostname
-    const protocol = window.location.protocol;
-    const hostname = window.location.hostname;
-    return `${protocol}//${hostname}:3001`;
-};
-
-const API_URL = getApiUrl();
+const API_URL = 'http://localhost:3001';
 
 export const useCalendarStore = create<CalendarState>((set, get) => {
-    const loadInitialData = async () => {
-        const { viewMode } = get();
-        await get().fetchProfile();
-        if (viewMode !== 'friend') {
-            await get().fetchEvents();
-        }
-        await Promise.all([get().fetchFriends(), get().fetchUsers(), get().fetchAppConfig()]);
-    };
-
     const logoutAndReset = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         set({
             user: null,
             token: null,
-            bootstrapped: false,
-            bootError: null,
             events: {},
             friends: [],
             users: [],
@@ -235,34 +175,25 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
             viewingUsername: null,
             viewingPreferences: null,
             profile: null,
-            localPreferences: null,
             currentView: 'calendar',
-            appConfig: null,
             dailyFacts: {},
             dayBackgrounds: {},
-            adminEvents: [],
-            adminUsers: [],
-            adminError: null,
-            socialError: null,
+            roles: [],
+            eventNotes: {},
             compareMode: false,
-            compareEvents: {}
+            compareEvents: {},
+            appConfig: null,
+            adminEvents: [],
+            adminUsers: []
         });
-        localStorage.removeItem('profile');
-        localStorage.removeItem('preferences');
     };
-
-    const storedProfile = safeParse<User | null>(localStorage.getItem('profile'));
-    const storedPrefs = safeParse<UserPreferences>(localStorage.getItem('preferences'));
 
     return {
         // Auth Initial State
         user: JSON.parse(localStorage.getItem('user') || 'null'),
         token: localStorage.getItem('token'),
         isLoading: false,
-        bootstrapped: true,
-        bootError: null,
         error: null,
-        localPreferences: storedPrefs || null,
 
         // Calendar Initial State
         events: {},
@@ -272,41 +203,30 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
         viewMode: 'self',
         viewingUserId: JSON.parse(localStorage.getItem('user') || 'null')?.id || null,
         viewingUsername: JSON.parse(localStorage.getItem('user') || 'null')?.username || null,
-        viewingPreferences: storedProfile?.preferences || storedPrefs || null,
-        profile: storedProfile,
+        viewingPreferences: null,
+        profile: null,
+        localPreferences: (() => {
+            try {
+                return JSON.parse(localStorage.getItem('preferences') || 'null');
+            } catch {
+                return null;
+            }
+        })(),
         currentView: 'calendar',
         users: [],
         friends: [],
         socialError: null,
-        appConfig: null,
         dailyFacts: {},
-
-        // Admin Initial State
-        adminEvents: [],
-        adminUsers: [],
-        adminError: null,
-
-        // Compare Initial State
-        compareMode: false,
-        compareEvents: {},
-
-        // Visuals Initial State
         dayBackgrounds: {},
-
-        // Roles & Notes Initial State
         roles: [],
         eventNotes: {},
+        compareMode: false,
+        compareEvents: {},
+        appConfig: null,
+        adminEvents: [],
+        adminUsers: [],
 
         // Auth Actions
-        bootstrap: async () => {
-            // Non-blocking helper to refresh user data
-            try {
-                await loadInitialData();
-            } catch (e: any) {
-                set({ bootError: 'Unable to reach server. Please refresh when ready.' });
-            }
-        },
-
         login: async (username, password) => {
             set({ isLoading: true, error: null });
             try {
@@ -323,19 +243,13 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     set({
                         user: data.user,
                         token: data.token,
+                        isLoading: false,
                         viewMode: 'self',
                         viewingUserId: data.user.id,
                         viewingUsername: data.user.username,
-                        viewingPreferences: null,
-                        currentView: 'calendar',
-                        bootError: null
+                        viewingPreferences: null
                     });
-                    try {
-                        await loadInitialData();
-                    } catch (e) {
-                        set({ bootError: 'Unable to reach server. Please refresh when ready.' });
-                    }
-                    set({ isLoading: false, bootstrapped: true });
+                    await Promise.all([get().fetchEvents(), get().fetchFriends(), get().fetchUsers(), get().fetchProfile()]);
                 } else {
                     set({ error: data.error, isLoading: false });
                 }
@@ -360,19 +274,13 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     set({
                         user: data.user,
                         token: data.token,
+                        isLoading: false,
                         viewMode: 'self',
                         viewingUserId: data.user.id,
                         viewingUsername: data.user.username,
-                        viewingPreferences: null,
-                        currentView: 'calendar',
-                        bootError: null
+                        viewingPreferences: null
                     });
-                    try {
-                        await loadInitialData();
-                    } catch (e) {
-                        set({ bootError: 'Unable to reach server. Please refresh when ready.' });
-                    }
-                    set({ isLoading: false, bootstrapped: true });
+                    await Promise.all([get().fetchEvents(), get().fetchFriends(), get().fetchUsers(), get().fetchProfile()]);
                 } else {
                     set({ error: data.error, isLoading: false });
                 }
@@ -385,10 +293,21 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
 
         setSelection: (start, end) => set({ selection: { start, end } }),
         setSelectionActive: (active) => set({ selectionActive: active }),
+        setLocalPreferences: (prefs) => {
+            set((state) => {
+                const merged = { ...(state.localPreferences || {}), ...prefs };
+                localStorage.setItem('preferences', JSON.stringify(merged));
+                return { localPreferences: merged };
+            });
+        },
+        navigateToProfile: () => set({ currentView: 'profile' }),
+        navigateToFriends: () => set({ currentView: 'friends' }),
+        navigateToCalendar: () => set({ currentView: 'calendar' }),
+        navigateToAdmin: () => set({ currentView: 'admin' }),
 
         fetchEvents: async () => {
-            const { token, user } = get();
-            if (!token || !user) {
+            const { token } = get();
+            if (!token) {
                 logoutAndReset();
                 return;
             }
@@ -396,20 +315,13 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                 const response = await fetch(`${API_URL}/events`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                if (!response.ok) {
-                    if (response.status === 401 || response.status === 403) {
-                        logoutAndReset();
-                        return;
-                    }
-                    throw new Error('Failed to fetch events');
-                }
-                const data = await response.json();
 
-                // Setup Polling (if not already set up or just refresh it)
-                // We'll store the interval ID on the window or similar, or just let the component handle it.
-                // Ideally, the store shouldn't manage the interval directly unless we add a specific action.
-                // For simplicity/requirement fulfilling "consistency among connected users", we rely on manual refresh or add polling in a component.
-                // But let's add a "startPolling" action to the store or just poll in App.tsx.
+                if (response.status === 401 || response.status === 403) {
+                    logoutAndReset();
+                    return;
+                }
+
+                const data = await response.json();
 
                 if (data.message === 'success') {
                     const eventsMap: Record<string, CalendarEvent[]> = {};
@@ -420,11 +332,9 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                             title: raw.title,
                             date: raw.date,
                             startTime: timeVal ? String(timeVal) : null,
+                            priority: normalizePriority(raw.priority),
                             note: raw.note || null,
-                            link: raw.link || null,
-                            version: raw.version || null,
-                            resources: raw.resources || null,
-                            unlockDate: raw.unlockDate || null
+                            link: raw.link || null
                         };
                         if (!eventsMap[event.date]) {
                             eventsMap[event.date] = [];
@@ -440,12 +350,16 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                             return a.title.localeCompare(b.title);
                         });
                     });
-                    const isStillSelfView = get().viewMode === 'self' && get().viewingUserId === user.id;
-                    if (!isStillSelfView) return;
-                    set((state) => ({
-                        events: eventsMap,
-                        viewingPreferences: state.viewingPreferences && state.viewMode === 'friend' ? state.viewingPreferences : (state.profile?.preferences || state.localPreferences || null)
-                    }));
+                    set((state) => {
+                        if (state.viewMode === 'friend') {
+                            return { compareEvents: eventsMap };
+                        }
+                        return {
+                            events: eventsMap,
+                            viewingPreferences: state.profile?.preferences || null,
+                            compareEvents: eventsMap
+                        };
+                    });
                 }
             } catch (error) {
                 console.error('Failed to fetch events:', error);
@@ -453,16 +367,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
         },
 
         fetchFriendEvents: async (friendId, friendName) => {
-            const { token, user } = get();
-            if (!token || !user) return;
-            set({
-                currentView: 'calendar',
-                viewMode: 'friend',
-                viewingUserId: friendId,
-                viewingUsername: friendName,
-                viewingPreferences: null,
-                socialError: null
-            });
+            const { token } = get();
+            if (!token) return;
             try {
                 const res = await fetch(`${API_URL}/friends/${friendId}/events`, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -481,6 +387,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                             title: raw.title,
                             date: raw.date,
                             startTime: timeVal ? String(timeVal) : null,
+                            priority: normalizePriority(raw.priority),
                             note: raw.note || null,
                             link: raw.link || null
                         };
@@ -498,47 +405,32 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                         });
                     });
                     const friendLabel = data.friend?.username || friendName;
-                    const stillViewingThisFriend = get().viewMode === 'friend' && get().viewingUserId === friendId;
-                    if (!stillViewingThisFriend) return;
-                    set({
+                    set((state) => ({
                         events: eventsMap,
                         viewMode: 'friend',
                         viewingUserId: friendId,
                         viewingUsername: friendLabel,
                         viewingPreferences: data.friend?.preferences || null,
-                        currentView: 'calendar',
-                        socialError: null
-                    });
+                        compareEvents: state.compareEvents && Object.keys(state.compareEvents).length > 0 ? state.compareEvents : state.events,
+                        currentView: 'calendar'
+                    }));
                 } else {
-                    set({
-                        socialError: data.error || 'Failed to load friend calendar',
-                        viewMode: 'self',
-                        viewingUserId: user.id,
-                        viewingUsername: user.username
-                    });
-                    await get().fetchEvents();
+                    set({ socialError: data.error || 'Failed to load friend calendar' });
                 }
             } catch (e) {
-                set({
-                    socialError: 'Unable to load friend calendar',
-                    viewMode: 'self',
-                    viewingUserId: user.id,
-                    viewingUsername: user.username
-                });
-                await get().fetchEvents();
+                set({ socialError: 'Unable to load friend calendar' });
             }
         },
 
         viewOwnCalendar: async () => {
-            const { user, fetchProfile } = get();
+            const { user } = get();
             if (!user) return;
-            await fetchProfile();
-            const freshProfile = get().profile;
             set({
                 viewMode: 'self',
                 viewingUserId: user.id,
                 viewingUsername: user.username,
-                viewingPreferences: freshProfile?.preferences || null
+                viewingPreferences: get().profile?.preferences || null,
+                currentView: 'calendar'
             });
             await get().fetchEvents();
         },
@@ -558,19 +450,20 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
             const newEvents: CalendarEvent[] = [];
 
             days.forEach((day, index) => {
-                const entry = titles[index];
-                if (entry && entry.title) {
-                    const dateStr = formatDate(day);
-                    const rawTime = entry.startTime ?? entry.time;
-                    newEvents.push({
-                        id: crypto.randomUUID(),
-                        title: entry.title,
-                        date: dateStr,
-                        startTime: rawTime && rawTime.trim() ? rawTime.trim() : null,
-                        note: entry.note?.trim() ? entry.note.trim() : null,
-                        link: entry.link?.trim() ? entry.link.trim() : null
-                    });
-                }
+                        const entry = titles[index];
+                        if (entry && entry.title) {
+                            const dateStr = formatDate(day);
+                            const rawTime = entry.startTime ?? entry.time;
+                            newEvents.push({
+                                id: crypto.randomUUID(),
+                                title: entry.title,
+                                date: dateStr,
+                                startTime: rawTime && rawTime.trim() ? rawTime.trim() : null,
+                                priority: normalizePriority(entry.priority),
+                                note: entry.note?.trim() ? entry.note.trim() : null,
+                                link: entry.link?.trim() ? entry.link.trim() : null
+                            });
+                        }
             });
 
             if (newEvents.length === 0) return;
@@ -618,6 +511,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                 title: entry.title,
                 date: formatDate(date),
                 startTime: rawTime && rawTime.trim() ? rawTime.trim() : null,
+                priority: normalizePriority(entry.priority),
                 note: entry.note?.trim() ? entry.note.trim() : null,
                 link: entry.link?.trim() ? entry.link.trim() : null
             };
@@ -646,60 +540,6 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                 await fetchEvents();
             } catch (e) {
                 console.error('Failed to add event', e);
-            }
-        },
-
-        copyEventsToDate: async (sourceDate, targetDate, eventIds) => {
-            const { token, user, viewMode, events, fetchEvents } = get();
-            if (!token || !user || viewMode === 'friend') return;
-            if (!sourceDate || !targetDate || sourceDate === targetDate) return;
-
-            const sourceEvents = events[sourceDate] || [];
-            if (sourceEvents.length === 0) return;
-
-            const selectionSet = eventIds && eventIds.length > 0 ? new Set(eventIds) : null;
-            const selectedEvents = selectionSet
-                ? sourceEvents.filter((ev) => selectionSet.has(ev.id))
-                : sourceEvents;
-            if (selectedEvents.length === 0) return;
-
-            const newEvents: CalendarEvent[] = selectedEvents.map((ev) => ({
-                id: crypto.randomUUID(),
-                title: ev.title,
-                date: targetDate,
-                startTime: ev.startTime || null,
-                note: ev.note || null,
-                link: ev.link || null,
-                resources: ev.resources || null,
-                unlockDate: ev.unlockDate || null
-            }));
-
-            try {
-                const res = await fetch(`${API_URL}/events`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ events: newEvents })
-                });
-                if (res.status === 401 || res.status === 403) {
-                    logoutAndReset();
-                    return;
-                }
-
-                // Optimistically merge
-                set((state) => {
-                    const merged = { ...state.events };
-                    if (!merged[targetDate]) merged[targetDate] = [];
-                    merged[targetDate] = [...merged[targetDate], ...newEvents];
-                    merged[targetDate].sort((a, b) => (a.startTime || '').localeCompare(b.startTime || '') || a.title.localeCompare(b.title));
-                    return { events: merged };
-                });
-
-                await fetchEvents();
-            } catch (e) {
-                console.error('Failed to copy events', e);
             }
         },
 
@@ -745,10 +585,9 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                         title: event.title,
                         date: event.date,
                         startTime: event.startTime || null,
+                        priority: normalizePriority(event.priority),
                         note: event.note || null,
-                        link: event.link || null,
-                        resources: event.resources || null,
-                        unlockDate: event.unlockDate || null
+                        link: event.link || null
                     })
                 });
                 if (res.status === 401 || res.status === 403) {
@@ -797,8 +636,6 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
         fetchProfile: async () => {
             const { token } = get();
             if (!token) return;
-            const activeToken = token;
-            const cachedPrefs = safeParse<UserPreferences>(localStorage.getItem('preferences')) || {};
             try {
                 const res = await fetch(`${API_URL}/me`, {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -808,37 +645,31 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     return;
                 }
                 const data = await res.json();
-                // Ignore stale responses that complete after a logout
-                if (!get().token || get().token !== activeToken) {
-                    return;
-                }
                 if (data.message === 'success') {
-                    const isAdmin = !!data.data.isAdmin;
-                    const serverPrefs = data.data.preferences || {};
-                    const currentLocal = get().localPreferences;
-                    const mergedPrefs: UserPreferences = currentLocal || { ...serverPrefs, ...cachedPrefs };
-                    const profileData = { ...data.data, isAdmin };
-                    const isFriendView = get().viewMode === 'friend';
-                    const friendViewingState = isFriendView
-                        ? {
-                            viewingUserId: get().viewingUserId,
-                            viewingUsername: get().viewingUsername,
-                            viewingPreferences: get().viewingPreferences
-                        }
-                        : {
-                            viewingUserId: data.data.id,
-                            viewingUsername: data.data.username,
-                            viewingPreferences: mergedPrefs
+                    set((state) => {
+                        const nextUser = {
+                            id: data.data.id,
+                            username: data.data.username,
+                            avatar_url: data.data.avatar_url,
+                            isAdmin: data.data.isAdmin
                         };
-                    set({
-                        profile: { ...profileData, preferences: mergedPrefs },
-                        user: { id: data.data.id, username: data.data.username, avatar_url: data.data.avatar_url, isAdmin },
-                        localPreferences: mergedPrefs,
-                        ...friendViewingState
+                        const nextState: Partial<CalendarState> = {
+                            profile: data.data,
+                            user: nextUser
+                        };
+                        if (state.viewMode === 'self') {
+                            nextState.viewingUserId = data.data.id;
+                            nextState.viewingUsername = data.data.username;
+                            nextState.viewingPreferences = data.data.preferences || null;
+                        }
+                        return nextState;
                     });
-                    localStorage.setItem('user', JSON.stringify({ id: data.data.id, username: data.data.username, avatar_url: data.data.avatar_url, isAdmin }));
-                    localStorage.setItem('profile', JSON.stringify({ ...profileData, preferences: mergedPrefs }));
-                    localStorage.setItem('preferences', JSON.stringify(mergedPrefs));
+                    localStorage.setItem('user', JSON.stringify({
+                        id: data.data.id,
+                        username: data.data.username,
+                        avatar_url: data.data.avatar_url,
+                        isAdmin: data.data.isAdmin
+                    }));
                 }
             } catch (e) {
                 console.error('Failed to fetch profile', e);
@@ -846,23 +677,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
         },
 
         updateProfile: async (prefs) => {
-            const { token, user, profile } = get();
+            const { token, user, fetchProfile } = get();
             if (!token || !user) return;
-            const basePrefs = get().localPreferences || profile?.preferences || {};
-            const mergedPrefs: UserPreferences = { ...basePrefs, ...prefs, _updatedAt: Date.now() };
-            const nextProfile = profile ? { ...profile, username: prefs.username ?? profile.username, avatar_url: prefs.avatar_url ?? profile.avatar_url, preferences: mergedPrefs } : null;
-            // Optimistically update UI/local cache so theme switches immediately
-            set({
-                profile: nextProfile,
-                viewingPreferences: mergedPrefs,
-                localPreferences: mergedPrefs
-            });
-            if (nextProfile) {
-                localStorage.setItem('profile', JSON.stringify(nextProfile));
-                localStorage.setItem('preferences', JSON.stringify(nextProfile.preferences || {}));
-            } else {
-                localStorage.setItem('preferences', JSON.stringify(mergedPrefs));
-            }
             try {
                 const res = await fetch(`${API_URL}/me`, {
                     method: 'PUT',
@@ -870,28 +686,17 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ avatar_url: prefs.avatar_url, preferences: mergedPrefs, username: prefs.username })
+                    body: JSON.stringify({ avatar_url: prefs.avatar_url, preferences: prefs, username: prefs.username })
                 });
                 if (res.status === 401 || res.status === 403) {
                     logoutAndReset();
                     return;
                 }
-                // Keep optimistic state; server already has mergedPrefs
+                await fetchProfile();
+                await get().viewOwnCalendar();
             } catch (e) {
                 console.error('Failed to update profile', e);
             }
-        },
-
-        setLocalPreferences: (prefs) => {
-            set((state) => {
-                const merged: UserPreferences = { ...(state.localPreferences || state.profile?.preferences || {}), ...prefs, _updatedAt: Date.now() };
-                const profile = state.profile ? { ...state.profile, preferences: merged } : state.profile;
-                if (profile) {
-                    localStorage.setItem('profile', JSON.stringify(profile));
-                }
-                localStorage.setItem('preferences', JSON.stringify(merged));
-                return { profile, viewingPreferences: merged, localPreferences: merged };
-            });
         },
 
         fetchFriends: async () => {
@@ -951,28 +756,40 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                 set({ socialError: 'Unable to remove friend' });
             }
         },
-
-        fetchDailyFact: async (date) => {
+        fetchMonthVisuals: async (start, end) => {
             const { token } = get();
             if (!token) return;
             try {
-                const res = await fetch(`${API_URL}/daily-facts/${date}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await res.json();
-                if (data.message === 'success' && data.data) {
-                    set(state => ({ dailyFacts: { ...state.dailyFacts, [date]: data.data } }));
+                const [factsRes, bgRes] = await Promise.all([
+                    fetch(`${API_URL}/daily-facts?start=${start}&end=${end}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }),
+                    fetch(`${API_URL}/day-backgrounds?start=${start}&end=${end}`, {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    })
+                ]);
+
+                if (factsRes.status === 401 || factsRes.status === 403 || bgRes.status === 401 || bgRes.status === 403) {
+                    logoutAndReset();
+                    return;
+                }
+
+                const [factsData, bgData] = await Promise.all([factsRes.json(), bgRes.json()]);
+                if (factsData.message === 'success') {
+                    set({ dailyFacts: factsData.data || {} });
+                }
+                if (bgData.message === 'success') {
+                    set({ dayBackgrounds: bgData.data || {} });
                 }
             } catch (e) {
-                console.error('Failed to fetch daily fact', e);
+                console.error('Failed to fetch month visuals', e);
             }
         },
-
         saveDailyFact: async (date, content) => {
             const { token } = get();
             if (!token) return;
             try {
-                await fetch(`${API_URL}/daily-facts`, {
+                const res = await fetch(`${API_URL}/daily-facts`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -980,85 +797,22 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     },
                     body: JSON.stringify({ date, content })
                 });
-                set(state => ({ dailyFacts: { ...state.dailyFacts, [date]: content } }));
+                if (res.status === 401 || res.status === 403) {
+                    logoutAndReset();
+                    return;
+                }
+                set((state) => ({
+                    dailyFacts: { ...state.dailyFacts, [date]: content }
+                }));
             } catch (e) {
                 console.error('Failed to save daily fact', e);
             }
         },
-
-        toggleCompare: async () => {
-            const { compareMode, token, user } = get();
-            if (compareMode) {
-                // Turn off
-                set({ compareMode: false, compareEvents: {} });
-            } else {
-                // Turn on - fetch my events
-                if (!token || !user) return;
-                try {
-                    const response = await fetch(`${API_URL}/events`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    if (!response.ok) return;
-                    const data = await response.json();
-                    if (data.message === 'success') {
-                        const eventsMap: Record<string, CalendarEvent[]> = {};
-                        data.data.forEach((raw: any) => {
-                            const timeVal = raw.startTime ?? raw.start_time ?? null;
-                            const event: CalendarEvent = {
-                                id: raw.id,
-                                title: raw.title,
-                                date: raw.date,
-                                startTime: timeVal ? String(timeVal) : null,
-                                note: raw.note || null,
-                                link: raw.link || null,
-                                resources: raw.resources || null,
-                                unlockDate: raw.unlockDate || raw.unlock_date || null
-                            };
-                            if (!eventsMap[event.date]) {
-                                eventsMap[event.date] = [];
-                            }
-                            eventsMap[event.date].push(event);
-                        });
-                        set({ compareMode: true, compareEvents: eventsMap });
-                    }
-                } catch (e) {
-                    console.error('Failed to fetch comparison events', e);
-                }
-            }
-        },
-
-        fetchMonthVisuals: async (start, end) => {
-            const { token } = get();
-            if (!token) return;
-
-            // Fetch Facts
-            try {
-                const res = await fetch(`${API_URL}/daily-facts?start=${start}&end=${end}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    set(state => ({ dailyFacts: { ...state.dailyFacts, ...data.data } }));
-                }
-            } catch (e) { console.error('Error fetching facts', e); }
-
-            // Fetch Backgrounds
-            try {
-                const res = await fetch(`${API_URL}/day-backgrounds?start=${start}&end=${end}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    set(state => ({ dayBackgrounds: { ...state.dayBackgrounds, ...data.data } }));
-                }
-            } catch (e) { console.error('Error fetching backgrounds', e); }
-        },
-
         saveDayBackground: async (date, imageUrl) => {
             const { token } = get();
             if (!token) return;
             try {
-                await fetch(`${API_URL}/day-backgrounds`, {
+                const res = await fetch(`${API_URL}/day-backgrounds`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -1066,230 +820,74 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     },
                     body: JSON.stringify({ date, imageUrl })
                 });
-                set(state => ({ dayBackgrounds: { ...state.dayBackgrounds, [date]: imageUrl } }));
+                if (res.status === 401 || res.status === 403) {
+                    logoutAndReset();
+                    return;
+                }
+                set((state) => ({
+                    dayBackgrounds: { ...state.dayBackgrounds, [date]: imageUrl }
+                }));
             } catch (e) {
                 console.error('Failed to save day background', e);
             }
         },
-
-        navigateToProfile: () => set({ currentView: 'profile' }),
-        navigateToFriends: () => set({ currentView: 'friends' }),
-        navigateToCalendar: () => set({ currentView: 'calendar' }),
-        navigateToAdmin: () => set({ currentView: 'admin' }),
-
-        fetchAdminEvents: async (userId) => {
-            const { token, user } = get();
-            if (!token || !user?.isAdmin) return;
-
-            try {
-                let url = `${API_URL}/admin/events`;
-                if (userId) url += `?userId=${userId}`;
-
-                const res = await fetch(url, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (res.status === 401 || res.status === 403) {
-                    // Don't auto-logout admins on one failure, just set error
-                    set({ adminError: 'Unauthorized to fetch admin events' });
-                    return;
-                }
-
-                const data = await res.json();
-                if (data.message === 'success') {
-                    set({ adminEvents: data.data, adminError: null });
-                } else {
-                    set({ adminError: data.error || 'Failed to fetch events' });
-                }
-            } catch (e) {
-                set({ adminError: 'Network error fetching admin events' });
-            }
-        },
-
-        adminDeleteEvents: async (ids) => {
-            const { token, user } = get();
-            if (!token || !user?.isAdmin) return false;
-
-            try {
-                const res = await fetch(`${API_URL}/admin/events/bulk`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ ids })
-                });
-
-                if (res.status === 401 || res.status === 403) {
-                    set({ adminError: 'Unauthorized' });
-                    return false;
-                }
-
-                const data = await res.json();
-                if (data.message === 'success') {
-                    // Update local state
-                    set(state => ({
-                        adminEvents: state.adminEvents.filter(e => !ids.includes(e.id))
-                    }));
-                    return true;
-                } else {
-                    set({ adminError: data.error || 'Failed to delete events' });
-                    return false;
-                }
-            } catch (e) {
-                set({ adminError: 'Network error deleting events' });
-                return false;
-            }
-        },
-
-        fetchAdminUsers: async () => {
-            const { token, user } = get();
-            if (!token || !user?.isAdmin) return;
-
-            try {
-                const res = await fetch(`${API_URL}/admin/users`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (res.status === 401 || res.status === 403) {
-                    set({ adminError: 'Unauthorized to fetch admin users' });
-                    return;
-                }
-
-                const data = await res.json();
-                if (data.message === 'success') {
-                    set({ adminUsers: data.data, adminError: null });
-                } else {
-                    set({ adminError: data.error || 'Failed to fetch users' });
-                }
-            } catch (e) {
-                set({ adminError: 'Network error fetching admin users' });
-            }
-        },
-
-        adminDeleteUsers: async (ids) => {
-            const { token, user } = get();
-            if (!token || !user?.isAdmin) return false;
-
-            try {
-                const res = await fetch(`${API_URL}/admin/users/bulk`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ ids })
-                });
-
-                if (res.status === 401 || res.status === 403) {
-                    set({ adminError: 'Unauthorized' });
-                    return false;
-                }
-
-                const data = await res.json();
-                if (data.message === 'success') {
-                    set(state => ({
-                        adminUsers: state.adminUsers.filter(u => !ids.includes(u.id))
-                    }));
-                    return true;
-                } else {
-                    set({ adminError: data.error || 'Failed to delete users' });
-                    return false;
-                }
-            } catch (e) {
-                set({ adminError: 'Network error deleting users' });
-                return false;
-            }
-        },
-
         fetchRoles: async () => {
             const { token } = get();
-            if (!token) {
-                console.warn('fetchRoles: No token available');
-                return;
-            }
+            if (!token) return;
             try {
-                console.log('fetchRoles: Fetching...');
                 const res = await fetch(`${API_URL}/roles`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.message === 'success') {
-                        console.log('fetchRoles: Success', data.data);
-                        set({ roles: data.data });
-                    }
-                } else {
-                    console.error('fetchRoles: Failed', res.status);
+                if (res.status === 401 || res.status === 403) {
+                    logoutAndReset();
+                    return;
+                }
+                const data = await res.json();
+                if (data.message === 'success') {
+                    set({ roles: data.data || [] });
                 }
             } catch (e) {
                 console.error('Failed to fetch roles', e);
             }
         },
-
-        manageRoles: async (action, data) => {
-            const { token, fetchRoles } = get();
-            if (!token) return false;
-
+        manageRoles: async (action, payload) => {
+            const { token } = get();
+            if (!token) return;
             try {
-                let url = `${API_URL}/roles`;
-                let method = 'POST';
-
-                if (action === 'update') {
-                    url += `/${data.id}`;
-                    method = 'PUT';
-                } else if (action === 'delete') {
-                    url += `/${data.id}`;
-                    method = 'DELETE';
+                if (action === 'create') {
+                    await fetch(`${API_URL}/roles`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ label: payload.label, color: payload.color })
+                    });
+                } else if (action === 'update' && payload.id) {
+                    await fetch(`${API_URL}/roles/${payload.id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ label: payload.label, color: payload.color, is_enabled: 1 })
+                    });
+                } else if (action === 'delete' && payload.id) {
+                    await fetch(`${API_URL}/roles/${payload.id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
                 }
-
-                console.log(`manageRoles: ${action}`, data);
-
-                const res = await fetch(url, {
-                    method,
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: (action !== 'delete') ? JSON.stringify(data) : undefined
-                });
-
-                if (res.ok) {
-                    if (action === 'create') {
-                        const resData = await res.json();
-                        if (resData.data) {
-                            console.log('manageRoles: Created', resData.data);
-                            set((state) => ({ roles: [...state.roles, resData.data] }));
-                        }
-                    } else if (action === 'update') {
-                        set((state) => ({
-                            roles: state.roles.map(r =>
-                                r.id === data.id ? { ...r, ...data } : r
-                            )
-                        }));
-                    } else if (action === 'delete') {
-                        set((state) => ({
-                            roles: state.roles.filter(r => r.id !== data.id)
-                        }));
-                    }
-
-                    await fetchRoles();
-                    return true;
-                }
-                console.error('manageRoles: Backend returned error', res.status);
-                return false;
+                await get().fetchRoles();
             } catch (e) {
-                console.error('Failed to manage role', e);
-                return false;
+                console.error('Failed to manage roles', e);
             }
         },
-
         reorderRoles: async (orderedIds) => {
-            const { token, fetchRoles } = get();
-            if (!token) return false;
-
+            const { token } = get();
+            if (!token) return;
             try {
-                const res = await fetch(`${API_URL}/roles/reorder`, {
+                await fetch(`${API_URL}/roles/reorder`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
@@ -1297,26 +895,11 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     },
                     body: JSON.stringify({ orderedIds })
                 });
-
-                if (res.ok) {
-                    set((state) => {
-                        const idMap = new Map(state.roles.map(r => [r.id, r]));
-                        const newRoles = orderedIds.map(id => idMap.get(id)).filter(Boolean) as Role[];
-                        return { roles: newRoles };
-                    });
-
-                    await fetchRoles();
-                    return true;
-                }
-                return false;
+                await get().fetchRoles();
             } catch (e) {
                 console.error('Failed to reorder roles', e);
-                return false;
             }
         },
-
-
-
         fetchEventNotes: async (eventId) => {
             const { token } = get();
             if (!token) return;
@@ -1324,23 +907,24 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                 const res = await fetch(`${API_URL}/events/${eventId}/notes`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
+                if (res.status === 401 || res.status === 403) {
+                    logoutAndReset();
+                    return;
+                }
                 const data = await res.json();
                 if (data.message === 'success') {
-                    set(state => {
-                        const currentNotes = { ...state.eventNotes };
-                        const noteMap: Record<string, string> = {};
-                        data.data.forEach((n: EventNote) => {
-                            noteMap[n.role_id] = n.content;
-                        });
-                        currentNotes[eventId] = noteMap;
-                        return { eventNotes: currentNotes };
+                    const next: Record<string, string> = {};
+                    (data.data || []).forEach((row: { role_id: string; content: string }) => {
+                        next[row.role_id] = row.content || '';
                     });
+                    set((state) => ({
+                        eventNotes: { ...state.eventNotes, [eventId]: next }
+                    }));
                 }
             } catch (e) {
-                console.error('Failed to fetch notes', e);
+                console.error('Failed to fetch event notes', e);
             }
         },
-
         saveEventNote: async (eventId, roleId, content) => {
             const { token } = get();
             if (!token) return false;
@@ -1353,101 +937,199 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     },
                     body: JSON.stringify({ roleId, content })
                 });
+                if (res.status === 401 || res.status === 403) {
+                    logoutAndReset();
+                    return false;
+                }
                 if (res.ok) {
-                    set(state => {
-                        const currentNotes = { ...state.eventNotes };
-                        if (!currentNotes[eventId]) currentNotes[eventId] = {};
-                        currentNotes[eventId][roleId] = content;
-                        return { eventNotes: currentNotes };
-                    });
+                    set((state) => ({
+                        eventNotes: {
+                            ...state.eventNotes,
+                            [eventId]: { ...(state.eventNotes[eventId] || {}), [roleId]: content }
+                        }
+                    }));
                     return true;
                 }
-                return false;
             } catch (e) {
-                console.error('Failed to save note', e);
-                return false;
+                console.error('Failed to save event note', e);
             }
+            return false;
         },
-
-        uploadFile: async (file: File) => {
+        uploadFile: async (file) => {
             const { token } = get();
             if (!token) return null;
-            const formData = new FormData();
-            formData.append('file', file);
-
             try {
+                const form = new FormData();
+                form.append('file', file);
                 const res = await fetch(`${API_URL}/upload`, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` },
-                    body: formData
+                    body: form
                 });
-                if (res.ok) {
-                    const data = await res.json();
-                    return data.url;
+                if (res.status === 401 || res.status === 403) {
+                    logoutAndReset();
+                    return null;
                 }
-                return null;
+                const data = await res.json();
+                if (data.message === 'success' && data.url) {
+                    return data.url as string;
+                }
             } catch (e) {
-                console.error('Upload failed', e);
-                return null;
+                console.error('Failed to upload file', e);
+            }
+            return null;
+        },
+        toggleCompare: () => set((state) => ({ compareMode: !state.compareMode })),
+        fetchAppConfig: async () => {
+            try {
+                const res = await fetch(`${API_URL}/config`);
+                const data = await res.json();
+                if (data.message === 'success') {
+                    set({ appConfig: data.data || null });
+                }
+            } catch (e) {
+                console.error('Failed to fetch app config', e);
             }
         },
-
-        fetchTableData: async (table: string) => {
-            const { token, user } = get();
-            if (!token || !user?.isAdmin) return [];
+        updateAppConfig: async (config) => {
+            const { token } = get();
+            if (!token) return false;
+            try {
+                const res = await fetch(`${API_URL}/admin/config`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ config })
+                });
+                if (res.status === 401 || res.status === 403) {
+                    logoutAndReset();
+                    return false;
+                }
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.message === 'success') {
+                        set({ appConfig: data.data || config });
+                    }
+                    return true;
+                }
+            } catch (e) {
+                console.error('Failed to update app config', e);
+            }
+            return false;
+        },
+        bootstrap: async () => {
+            await Promise.all([
+                get().fetchEvents(),
+                get().fetchFriends(),
+                get().fetchUsers(),
+                get().fetchProfile(),
+                get().fetchRoles(),
+                get().fetchAppConfig()
+            ]);
+        },
+        fetchAdminEvents: async (userId) => {
+            const { token } = get();
+            if (!token) return;
+            const query = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+            try {
+                const res = await fetch(`${API_URL}/admin/events${query}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.status === 401 || res.status === 403) {
+                    logoutAndReset();
+                    return;
+                }
+                const data = await res.json();
+                if (data.message === 'success') {
+                    set({ adminEvents: data.data || [] });
+                }
+            } catch (e) {
+                console.error('Failed to fetch admin events', e);
+            }
+        },
+        adminDeleteEvents: async (ids) => {
+            const { token } = get();
+            if (!token) return false;
+            try {
+                const res = await fetch(`${API_URL}/admin/events/bulk`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ ids })
+                });
+                if (res.status === 401 || res.status === 403) {
+                    logoutAndReset();
+                    return false;
+                }
+                return res.ok;
+            } catch (e) {
+                console.error('Failed to delete admin events', e);
+            }
+            return false;
+        },
+        fetchAdminUsers: async () => {
+            const { token } = get();
+            if (!token) return;
+            try {
+                const res = await fetch(`${API_URL}/admin/users`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.status === 401 || res.status === 403) {
+                    logoutAndReset();
+                    return;
+                }
+                const data = await res.json();
+                if (data.message === 'success') {
+                    set({ adminUsers: data.data || [] });
+                }
+            } catch (e) {
+                console.error('Failed to fetch admin users', e);
+            }
+        },
+        adminDeleteUsers: async (ids) => {
+            const { token } = get();
+            if (!token) return false;
+            try {
+                const res = await fetch(`${API_URL}/admin/users/bulk`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ ids })
+                });
+                if (res.status === 401 || res.status === 403) {
+                    logoutAndReset();
+                    return false;
+                }
+                return res.ok;
+            } catch (e) {
+                console.error('Failed to delete admin users', e);
+            }
+            return false;
+        },
+        fetchTableData: async (table) => {
+            const { token } = get();
+            if (!token) return [];
             try {
                 const res = await fetch(`${API_URL}/admin/database/${table}`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                const data = await res.json();
-                if (data.message === 'success') {
-                    return data.data;
+                if (res.status === 401 || res.status === 403) {
+                    logoutAndReset();
+                    return [];
                 }
-                return [];
-            } catch (e) {
-                console.error('Fetch table failed', e);
-                return [];
-            }
-        },
-
-        fetchAppConfig: async () => {
-            try {
-                // 1. Fetch Global Config
-                const res = await fetch(`${API_URL}/config`);
                 const data = await res.json();
-                let globalConfig: AppConfig | null = null;
-                if (data.message === 'success') {
-                    globalConfig = data.data;
-                }
-
-                // 2. Merge with User Config (if any)
-                const { localPreferences, profile } = get();
-                const userPrefs = localPreferences || profile?.preferences;
-                const userConfigOverride = userPrefs?.config || {};
-
-                const effectiveConfig = globalConfig
-                    ? { ...globalConfig, ...userConfigOverride } as AppConfig
-                    : (userConfigOverride as AppConfig);
-
-                set({ appConfig: effectiveConfig });
+                if (data.message === 'success') return data.data || [];
             } catch (e) {
-                console.error('Failed to fetch config', e);
+                console.error('Failed to fetch table data', e);
             }
+            return [];
         },
-
-        updateAppConfig: async (config): Promise<boolean> => {
-            const { updateProfile } = get();
-            try {
-                // Save config to user preferences instead of global admin endpoint
-                await updateProfile({ config });
-                // Also update local appConfig state immediately
-                set({ appConfig: config });
-                return true;
-            } catch (e) {
-                console.error('Failed to update config', e);
-                return false;
-            }
-        }
     };
 });
 export interface UserPreferences {
@@ -1455,6 +1137,5 @@ export interface UserPreferences {
     accentColor?: string;
     noiseOverlay?: boolean;
     theme?: 'light' | 'dark';
-    config?: Partial<AppConfig>; // User specific config overrides
     _updatedAt?: number;
 }

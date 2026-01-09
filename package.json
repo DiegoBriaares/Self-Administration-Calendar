@@ -8,14 +8,17 @@
     "start": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "release": "node scripts/release.cjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.556.0",
+    "multer": "^2.0.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0",
     "tailwind-merge": "^3.4.0",
     "zustand": "^5.0.9"
   },

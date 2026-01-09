@@ -7,28 +7,43 @@ import { CalendarRange, Clock } from 'lucide-react';
 export const RangeBoard: React.FC = () => {
     const { selection, events, viewMode } = useCalendarStore();
     const hasSelection = selection.start && selection.end;
+    const [sortOrder, setSortOrder] = React.useState<'time' | 'priority'>('time');
 
     const rangeEvents = useMemo(() => {
         if (!selection.start || !selection.end) return [];
         const start = selection.start < selection.end ? selection.start : selection.end;
         const end = selection.start < selection.end ? selection.end : selection.start;
         const days = eachDayOfInterval({ start, end });
-        const merged: Array<{ date: string; title: string; startTime?: string | null; note?: string | null; link?: string | null; id: string }> = [];
+        const merged: Array<{ date: string; title: string; startTime?: string | null; priority?: number | null; note?: string | null; link?: string | null; id: string }> = [];
         days.forEach((day) => {
             const dateStr = formatDate(day);
             (events[dateStr] || []).forEach((ev) => {
                 merged.push({ ...ev, date: dateStr });
             });
         });
+        const priorityValue = (value?: number | null) => {
+            if (value === null || value === undefined) return Number.MAX_SAFE_INTEGER;
+            return value;
+        };
         merged.sort((a, b) => {
             if (a.date !== b.date) return a.date.localeCompare(b.date);
+            if (sortOrder === 'priority') {
+                const pA = priorityValue(a.priority);
+                const pB = priorityValue(b.priority);
+                if (pA !== pB) return pA - pB;
+            }
             const timeA = a.startTime || '';
             const timeB = b.startTime || '';
             if (timeA !== timeB) return timeA.localeCompare(timeB);
+            if (sortOrder !== 'priority') {
+                const pA = priorityValue(a.priority);
+                const pB = priorityValue(b.priority);
+                if (pA !== pB) return pA - pB;
+            }
             return a.title.localeCompare(b.title);
         });
         return merged;
-    }, [selection.start, selection.end, events]);
+    }, [selection.start, selection.end, events, sortOrder]);
 
     if (!hasSelection || rangeEvents.length === 0) return null;
 
@@ -37,26 +52,42 @@ export const RangeBoard: React.FC = () => {
         : '';
 
     return (
-        <div className="w-full border border-white/10 bg-[#0c0f14] p-4 mt-6">
-            <div className="flex items-center justify-between mb-3">
+        <div className="w-full board-panel p-5 mt-6 rounded-2xl">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 <div className="flex items-center gap-2">
-                    <CalendarRange className="w-4 h-4 text-[var(--accent)]" />
-                    <div className="text-sm font-mono text-white tracking-[0.2em] uppercase">Range Overview</div>
+                    <CalendarRange className="w-4 h-4 text-orange-500" />
+                    <div className="text-sm font-medium text-stone-800 tracking-[0.15em] uppercase">Range Overview</div>
                 </div>
-                <div className="text-[11px] font-mono text-slate-400">{rangeLabel}</div>
+                <div className="flex items-center gap-4">
+                    <div className="text-sm font-mono text-orange-600">{rangeLabel}</div>
+                    <div className="flex items-center gap-2 text-[10px] font-mono text-stone-500 uppercase">
+                        <label htmlFor="range-order" className="tracking-[0.2em]">Order</label>
+                        <select
+                            id="range-order"
+                            value={sortOrder}
+                            onChange={(e) => setSortOrder(e.target.value as 'time' | 'priority')}
+                            className="border border-orange-200 rounded-lg px-2 py-1 text-[11px] text-stone-600 bg-white"
+                        >
+                            <option value="time">Hour</option>
+                            <option value="priority">Priority</option>
+                        </select>
+                    </div>
+                </div>
             </div>
-            <div className="grid gap-2 md:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
                 {rangeEvents.map((ev) => (
-                    <div key={ev.id} className="border border-white/10 bg-white/5 p-3 flex flex-col gap-1">
-                        <div className="flex items-center justify-between text-[11px] text-slate-400">
-                            <span className="font-mono">{ev.date}</span>
-                            {ev.startTime && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {ev.startTime}</span>}
-                            {viewMode === 'friend' && <span className="text-[10px] uppercase text-[#d4af37]">Read-only</span>}
+                    <div key={ev.id} className="board-card flex flex-col gap-2">
+                        <div className="flex items-center justify-between text-sm text-stone-500 flex-wrap gap-2">
+                            <span className="font-mono text-orange-600">{ev.date}</span>
+                            <span className="pill-soft flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-orange-500" /> {(ev.startTime && ev.startTime.trim() !== '' ? ev.startTime : '--:--')} · {ev.priority !== null && ev.priority !== undefined ? `P${ev.priority}` : '--'}
+                            </span>
+                            {viewMode === 'friend' && <span className="pill-soft text-sm uppercase">Read-only</span>}
                         </div>
-                        <div className="text-white text-sm font-mono truncate">{ev.title}</div>
-                        {ev.note && <div className="text-[11px] text-slate-300 truncate">{ev.note}</div>}
+                        <div className="text-stone-800 dark:text-slate-100 text-sm font-medium truncate">{ev.title}</div>
+                        {ev.note && <div className="text-sm text-stone-500 dark:text-slate-300 truncate">{ev.note}</div>}
                         {ev.link && (
-                            <a href={ev.link} target="_blank" rel="noreferrer" className="text-[11px] text-sky-300 underline">
+                            <a href={ev.link} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:text-blue-700 underline truncate">
                                 {ev.link}
                             </a>
                         )}
