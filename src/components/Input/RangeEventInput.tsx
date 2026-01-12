@@ -107,14 +107,26 @@ export const RangeEventInput: React.FC = () => {
             .filter((date) => date !== copySourceDate);
         if (targetDates.length === 0) return;
         const payload = targetDates.flatMap((date) => (
-            selectedEvents.map((event) => ({
-                title: event.title,
-                date,
-                startTime: event.startTime ?? null,
-                priority: event.priority ?? null,
-                link: event.link ?? null,
-                note: event.note ?? null
-            }))
+            selectedEvents.map((event) => {
+                const chain: string[] = [];
+                (event.originDates || []).forEach((origin) => {
+                    if (origin && !chain.includes(origin)) {
+                        chain.push(origin);
+                    }
+                });
+                if (copySourceDate && !chain.includes(copySourceDate)) {
+                    chain.push(copySourceDate);
+                }
+                return {
+                    title: event.title,
+                    date,
+                    startTime: event.startTime ?? null,
+                    priority: event.priority ?? null,
+                    link: event.link ?? null,
+                    note: event.note ?? null,
+                    originDates: chain.length > 0 ? chain : null
+                };
+            })
         ));
         await addEventsBulk(payload);
         clearSelection();
