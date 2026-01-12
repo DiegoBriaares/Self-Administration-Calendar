@@ -20,6 +20,7 @@ export interface CalendarEvent {
     priority?: number | null;
     note?: string | null;
     link?: string | null;
+    originDates?: string[] | null;
 }
 
 export interface Role {
@@ -49,6 +50,19 @@ export interface AdminEvent {
     userId?: string;
     username?: string;
 }
+
+const parseOriginDates = (resources: any) => {
+    if (!resources) return null;
+    try {
+        const parsed = typeof resources === 'string' ? JSON.parse(resources) : resources;
+        const origins = parsed?.originDates;
+        if (!Array.isArray(origins)) return null;
+        const cleaned = origins.filter((item: any) => typeof item === 'string' && item.trim() !== '');
+        return cleaned.length > 0 ? cleaned : null;
+    } catch {
+        return null;
+    }
+};
 
 export interface AdminUser {
     id: string;
@@ -101,7 +115,7 @@ interface CalendarState {
     viewOwnCalendar: () => Promise<void>;
     addEvent: (date: Date, entry: { title: string; time?: string; startTime?: string; link?: string; note?: string; priority?: number | string | null }) => Promise<void>;
     addEventsToRange: (entries: Array<{ title: string; time?: string; startTime?: string; link?: string; note?: string; priority?: number | string | null }>) => Promise<void>;
-    addEventsBulk: (entries: Array<{ title: string; date: string; startTime?: string | null; priority?: number | string | null; link?: string | null; note?: string | null }>) => Promise<void>;
+    addEventsBulk: (entries: Array<{ title: string; date: string; startTime?: string | null; priority?: number | string | null; link?: string | null; note?: string | null; originDates?: string[] | null }>) => Promise<void>;
     deleteEvent: (id: string) => Promise<void>;
     editEvent: (event: CalendarEvent) => Promise<void>;
     setViewDate: (date: Date) => void;
@@ -337,7 +351,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                             startTime: timeVal ? String(timeVal) : null,
                             priority: normalizePriority(raw.priority),
                             note: raw.note || null,
-                            link: raw.link || null
+                            link: raw.link || null,
+                            originDates: parseOriginDates(raw.resources)
                         };
                         if (!eventsMap[event.date]) {
                             eventsMap[event.date] = [];
@@ -464,7 +479,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                                 startTime: rawTime && rawTime.trim() ? rawTime.trim() : null,
                                 priority: normalizePriority(entry.priority),
                                 note: entry.note?.trim() ? entry.note.trim() : null,
-                                link: entry.link?.trim() ? entry.link.trim() : null
+                                link: entry.link?.trim() ? entry.link.trim() : null,
+                                originDates: null
                             });
                         }
             });
@@ -478,7 +494,12 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ events: newEvents }),
+                    body: JSON.stringify({
+                        events: newEvents.map((event) => ({
+                            ...event,
+                            resources: null
+                        }))
+                    }),
                 });
 
                 if (response.status === 401 || response.status === 403) {
@@ -518,7 +539,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     startTime: entry.startTime && entry.startTime.trim() ? entry.startTime.trim() : null,
                     priority: normalizePriority(entry.priority),
                     note: entry.note?.trim() ? entry.note.trim() : null,
-                    link: entry.link?.trim() ? entry.link.trim() : null
+                    link: entry.link?.trim() ? entry.link.trim() : null,
+                    originDates: entry.originDates && entry.originDates.length > 0 ? entry.originDates : null
                 }));
 
             if (newEvents.length === 0) return;
@@ -530,7 +552,12 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ events: newEvents }),
+                    body: JSON.stringify({
+                        events: newEvents.map((event) => ({
+                            ...event,
+                            resources: event.originDates ? { originDates: event.originDates } : null
+                        }))
+                    }),
                 });
 
                 if (response.status === 401 || response.status === 403) {
@@ -566,7 +593,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                 startTime: rawTime && rawTime.trim() ? rawTime.trim() : null,
                 priority: normalizePriority(entry.priority),
                 note: entry.note?.trim() ? entry.note.trim() : null,
-                link: entry.link?.trim() ? entry.link.trim() : null
+                link: entry.link?.trim() ? entry.link.trim() : null,
+                originDates: null
             };
             try {
                 const res = await fetch(`${API_URL}/events`, {
@@ -575,7 +603,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ events: [newEvent] })
+                    body: JSON.stringify({ events: [{ ...newEvent, resources: null }] })
                 });
                 if (res.status === 401 || res.status === 403) {
                     logoutAndReset();
@@ -640,7 +668,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                         startTime: event.startTime || null,
                         priority: normalizePriority(event.priority),
                         note: event.note || null,
-                        link: event.link || null
+                        link: event.link || null,
+                        resources: event.originDates ? { originDates: event.originDates } : null
                     })
                 });
                 if (res.status === 401 || res.status === 403) {

@@ -11,6 +11,7 @@ export const EventBoard: React.FC<EventBoardProps> = ({ selectedDate }) => {
     const { events, viewMode, addEvent, deleteEvent, editEvent } = useCalendarStore();
     const [draft, setDraft] = useState({ title: '', time: '', link: '', note: '', priority: '' });
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
     const [sortOrder, setSortOrder] = useState<'time' | 'priority'>('time');
     if (!selectedDate) return null;
 
@@ -55,7 +56,7 @@ export const EventBoard: React.FC<EventBoardProps> = ({ selectedDate }) => {
         <div className="w-full board-panel p-4 rounded-2xl">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
                 <div>
-                    <div className="text-[10px] font-mono text-stone-500 tracking-[0.25em] uppercase">Day Events</div>
+                    <div className="text-[10px] font-mono text-stone-500 tracking-[0.25em] uppercase">Day Events Management</div>
                     <div className="text-xl text-stone-800 tracking-[0.2em]">{dateStr}</div>
                 </div>
                 <div className="flex items-center gap-3 text-[10px] font-mono text-stone-500 uppercase">
@@ -90,6 +91,7 @@ export const EventBoard: React.FC<EventBoardProps> = ({ selectedDate }) => {
                                             <button
                                                 onClick={() => {
                                                     setEditingId(event.id);
+                                                    setEditingEvent(event);
                                                     setDraft({
                                                         title: event.title || '',
                                                         time: event.startTime || '',
@@ -172,6 +174,7 @@ export const EventBoard: React.FC<EventBoardProps> = ({ selectedDate }) => {
                             <button
                                 onClick={() => {
                                     setEditingId(null);
+                                    setEditingEvent(null);
                                     setDraft({ title: '', time: '', link: '', note: '', priority: '' });
                                 }}
                                 className="px-3 py-2 text-xs font-mono text-stone-500 hover:text-stone-800 border border-orange-200 hover:border-orange-300"
@@ -190,12 +193,14 @@ export const EventBoard: React.FC<EventBoardProps> = ({ selectedDate }) => {
                                         startTime: draft.time,
                                         priority: parsePriority(draft.priority),
                                         link: draft.link,
-                                        note: draft.note
+                                        note: draft.note,
+                                        originDates: editingEvent?.originDates || null
                                     } as CalendarEvent);
                                 } else {
                                     await addEvent(selectedDate, { ...draft, priority: parsePriority(draft.priority) });
                                 }
                                 setEditingId(null);
+                                setEditingEvent(null);
                                 setDraft({ title: '', time: '', link: '', note: '', priority: '' });
                             }}
                             className="px-4 py-2 bg-orange-400 text-white text-xs font-mono font-bold hover:bg-orange-500 transition-colors flex items-center gap-2 rounded-lg"
