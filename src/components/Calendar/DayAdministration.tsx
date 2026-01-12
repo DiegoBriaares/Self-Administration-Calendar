@@ -1,0 +1,21 @@
+import React from 'react';
+import { EventBoard } from './EventBoard';
+import { RangeBoard } from './RangeBoard';
+
+interface DayAdministrationProps {
+    activeDate: Date | null;
+}
+
+export const DayAdministration: React.FC<DayAdministrationProps> = ({ activeDate }) => {
+    if (!activeDate) return null;
+
+    return (
+        <div className="mt-8">
+            <div className="mb-6">
+                <div className="text-2xl text-stone-800 tracking-[0.2em]">Day Administration</div>
+            </div>
+            <EventBoard selectedDate={activeDate} />
+            <RangeBoard />
+        </div>
+    );
+};

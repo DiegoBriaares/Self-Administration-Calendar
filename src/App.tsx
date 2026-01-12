@@ -3,13 +3,14 @@ import { CalendarView } from './components/Calendar/CalendarView';
 import { RangeEventInput } from './components/Input/RangeEventInput';
 import { Login } from './components/Auth/Login';
 import { useCalendarStore } from './store/calendarStore';
-import { LogOut, Eye, User, Users, ChevronDown, Settings } from 'lucide-react';
+import { LogOut, Eye, User, Users, ChevronDown, Settings, Shield } from 'lucide-react';
 import { SocialPanel } from './components/Friends/SocialPanel';
 import { ProfilePanel } from './components/Profile/ProfilePanel';
 import { AdminPanel } from './components/Admin/AdminPanel';
+import { RolesPanel } from './components/Roles/RolesPanel';
 
 function App() {
-  const { user, logout, viewMode, viewingUsername, profile, viewingPreferences, localPreferences, currentView, navigateToProfile, navigateToFriends, viewOwnCalendar, navigateToAdmin, appConfig, socialError, bootstrap, fetchAppConfig } = useCalendarStore();
+  const { user, logout, viewMode, viewingUsername, profile, viewingPreferences, localPreferences, currentView, navigateToProfile, navigateToFriends, navigateToRoles, viewOwnCalendar, navigateToAdmin, appConfig, socialError, bootstrap, fetchAppConfig } = useCalendarStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -146,6 +147,12 @@ function App() {
               <User className="w-4 h-4 text-orange-500" /> Profile
             </button>
             <button
+              onClick={() => { navigateToRoles(); setIsMenuOpen(false); }}
+              className="menu-item w-full text-left px-4 py-3 text-sm font-medium text-stone-700 hover:bg-orange-50 hover:text-orange-700 flex items-center gap-3 transition-all border-t border-orange-100"
+            >
+              <Shield className="w-4 h-4 text-orange-500" /> Roles
+            </button>
+            <button
               onClick={() => { navigateToFriends(); setIsMenuOpen(false); }}
               className="menu-item w-full text-left px-4 py-3 text-sm font-medium text-stone-700 hover:bg-orange-50 hover:text-orange-700 flex items-center gap-3 transition-all border-t border-orange-100"
             >
@@ -214,6 +221,8 @@ function App() {
         </div>
         {currentView === 'profile' ? (
           <ProfilePanel />
+        ) : currentView === 'roles' ? (
+          <RolesPanel />
         ) : currentView === 'friends' ? (
           <SocialPanel />
         ) : currentView === 'admin' ? (

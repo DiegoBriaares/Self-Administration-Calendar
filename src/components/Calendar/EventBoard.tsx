@@ -55,7 +55,7 @@ export const EventBoard: React.FC<EventBoardProps> = ({ selectedDate }) => {
         <div className="w-full board-panel p-4 rounded-2xl">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
                 <div>
-                    <div className="text-[10px] font-mono text-stone-500 tracking-[0.25em] uppercase">Day Log</div>
+                    <div className="text-[10px] font-mono text-stone-500 tracking-[0.25em] uppercase">Day Events</div>
                     <div className="text-xl text-stone-800 tracking-[0.2em]">{dateStr}</div>
                 </div>
                 <div className="flex items-center gap-3 text-[10px] font-mono text-stone-500 uppercase">

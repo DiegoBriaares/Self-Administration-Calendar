@@ -2,11 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
 import { eachDayOfInterval, format } from 'date-fns';
 import { X, Terminal, ShieldAlert } from 'lucide-react';
+import { formatDate } from '../../utils/dateUtils';
 
 export const RangeEventInput: React.FC = () => {
-    const { selection, selectionActive, addEventsToRange, clearSelection, viewMode, viewingUsername } = useCalendarStore();
+    const { selection, selectionActive, addEventsToRange, clearSelection, viewMode, viewingUsername, events, addEventsBulk } = useCalendarStore();
     const [isOpen, setIsOpen] = useState(false);
     const [eventMap, setEventMap] = useState<Record<string, { title?: string; time?: string; link?: string; note?: string; priority?: string }>>({});
+    const [copySourceDate, setCopySourceDate] = useState('');
+    const [selectedCopyIds, setSelectedCopyIds] = useState<string[]>([]);
 
     const days = useMemo(() => {
         if (!selection.start || !selection.end) return [];
@@ -27,6 +30,14 @@ export const RangeEventInput: React.FC = () => {
             setIsOpen(false);
         }
     }, [selection, days.length, selectionActive]);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        if (days.length === 0) return;
+        const defaultSource = formatDate(days[0]);
+        setCopySourceDate(defaultSource);
+        setSelectedCopyIds([]);
+    }, [isOpen, days]);
 
     if (!isOpen || days.length === 0) return null;
 
@@ -51,11 +62,64 @@ export const RangeEventInput: React.FC = () => {
         addEventsToRange(payload as any);
         clearSelection();
         setEventMap({});
+        setSelectedCopyIds([]);
     };
 
     const handleClose = () => {
         clearSelection();
         setEventMap({});
+        setSelectedCopyIds([]);
+    };
+
+    const sourceEvents = useMemo(() => {
+        if (!copySourceDate) return [];
+        const list = events[copySourceDate] || [];
+        return [...list].sort((a, b) => {
+            const tA = a.startTime || '';
+            const tB = b.startTime || '';
+            if (tA !== tB) return tA.localeCompare(tB);
+            const pA = a.priority ?? Number.MAX_SAFE_INTEGER;
+            const pB = b.priority ?? Number.MAX_SAFE_INTEGER;
+            if (pA !== pB) return pA - pB;
+            return a.title.localeCompare(b.title);
+        });
+    }, [events, copySourceDate]);
+
+    const allSelected = sourceEvents.length > 0 && selectedCopyIds.length === sourceEvents.length;
+
+    const toggleCopySelection = (id: string) => {
+        setSelectedCopyIds((prev) => (
+            prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]
+        ));
+    };
+
+    const handleCopySelectAll = () => {
+        if (sourceEvents.length === 0) return;
+        setSelectedCopyIds(allSelected ? [] : sourceEvents.map((event) => event.id));
+    };
+
+    const handleCopyEvents = async () => {
+        if (isReadOnly || !copySourceDate) return;
+        const selectedEvents = sourceEvents.filter((event) => selectedCopyIds.includes(event.id));
+        if (selectedEvents.length === 0) return;
+        const targetDates = days
+            .map((day) => formatDate(day))
+            .filter((date) => date !== copySourceDate);
+        if (targetDates.length === 0) return;
+        const payload = targetDates.flatMap((date) => (
+            selectedEvents.map((event) => ({
+                title: event.title,
+                date,
+                startTime: event.startTime ?? null,
+                priority: event.priority ?? null,
+                link: event.link ?? null,
+                note: event.note ?? null
+            }))
+        ));
+        await addEventsBulk(payload);
+        clearSelection();
+        setEventMap({});
+        setSelectedCopyIds([]);
     };
 
     return (
@@ -75,6 +139,82 @@ export const RangeEventInput: React.FC = () => {
 
                 {/* Data Grid */}
                 <div className="overflow-y-auto p-6 custom-scrollbar bg-[linear-gradient(rgba(251,146,60,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(251,146,60,0.05)_1px,transparent_1px)] bg-[size:20px_20px]">
+                    <div className="mb-5 border border-orange-200 bg-white rounded-xl p-4 shadow-sm">
+                        <div className="flex items-center justify-between flex-wrap gap-3">
+                            <div className="text-[10px] font-mono text-stone-500 uppercase tracking-[0.3em]">Copy Events</div>
+                            <div className="flex items-center gap-2 text-[10px] font-mono text-stone-500 uppercase">
+                                <label htmlFor="copy-source-date" className="tracking-[0.2em]">Source</label>
+                                <select
+                                    id="copy-source-date"
+                                    value={copySourceDate}
+                                    onChange={(e) => {
+                                        setCopySourceDate(e.target.value);
+                                        setSelectedCopyIds([]);
+                                    }}
+                                    disabled={isReadOnly}
+                                    className="border border-orange-200 rounded-lg px-2 py-1 text-[11px] text-stone-600 bg-white disabled:opacity-60"
+                                >
+                                    {days.map((day) => {
+                                        const key = formatDate(day);
+                                        return (
+                                            <option key={key} value={key}>
+                                                {key}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
+                        </div>
+                        <div className="mt-3 flex flex-col gap-2">
+                            {sourceEvents.length === 0 ? (
+                                <div className="text-xs text-stone-400 font-mono">
+                                    No events to copy for the selected day.
+                                </div>
+                            ) : (
+                                sourceEvents.map((event) => (
+                                    <label
+                                        key={event.id}
+                                        className="flex items-center gap-3 border border-orange-100 rounded-lg px-3 py-2 hover:border-orange-300 bg-white transition-colors"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedCopyIds.includes(event.id)}
+                                            onChange={() => toggleCopySelection(event.id)}
+                                            disabled={isReadOnly}
+                                            className="h-4 w-4 accent-orange-500 disabled:opacity-60"
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-sm text-stone-700 font-medium truncate">{event.title}</div>
+                                            <div className="text-[11px] text-stone-500 font-mono truncate">
+                                                {(event.startTime && event.startTime.trim() !== '' ? event.startTime : '--:--')} · {event.priority !== null && event.priority !== undefined ? `P${event.priority}` : '--'}
+                                            </div>
+                                        </div>
+                                    </label>
+                                ))
+                            )}
+                        </div>
+                        <div className="mt-3 flex items-center justify-between flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={handleCopySelectAll}
+                                disabled={isReadOnly || sourceEvents.length === 0}
+                                className="px-3 py-1.5 text-[11px] font-mono border border-orange-200 rounded-lg text-stone-500 hover:text-stone-700 hover:border-orange-400 disabled:opacity-50"
+                            >
+                                {allSelected ? 'None' : 'All'}
+                            </button>
+                            <div className="text-[10px] font-mono text-stone-500 uppercase tracking-widest">
+                                Selected {selectedCopyIds.length}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleCopyEvents}
+                                disabled={isReadOnly || selectedCopyIds.length === 0}
+                                className="px-4 py-2 bg-orange-400 text-white text-xs font-mono font-bold hover:bg-orange-500 transition-colors rounded-lg disabled:opacity-50"
+                            >
+                                Copy Selected
+                            </button>
+                        </div>
+                    </div>
                     <form id="sequence-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
                         {days.map((day, index) => {
                             const dateKey = day.toISOString();

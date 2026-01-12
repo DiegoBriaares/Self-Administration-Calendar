@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useCalendarStore, type UserPreferences } from '../../store/calendarStore';
-import { Palette, Image as ImageIcon, RefreshCcw, ArrowLeft, ChevronUp, ChevronDown, Trash2 } from 'lucide-react';
+import { Palette, Image as ImageIcon, RefreshCcw, ArrowLeft } from 'lucide-react';
 // import { format } from 'date-fns'; // Removed unused import
 
 export const ProfilePanel: React.FC = () => {
@@ -9,11 +9,7 @@ export const ProfilePanel: React.FC = () => {
         updateProfile,
         fetchProfile,
         setLocalPreferences,
-        navigateToCalendar,
-        roles,
-        fetchRoles,
-        manageRoles,
-        reorderRoles
+        navigateToCalendar
     } = useCalendarStore();
     const cachedPrefs = useMemo<UserPreferences | null>(() => {
         try {
@@ -41,8 +37,7 @@ export const ProfilePanel: React.FC = () => {
 
     useEffect(() => {
         fetchProfile();
-        fetchRoles();
-    }, [fetchProfile, fetchRoles]);
+    }, [fetchProfile]);
 
     useEffect(() => {
         if (isDirty) return;
@@ -193,90 +188,6 @@ export const ProfilePanel: React.FC = () => {
                         </p>
                     </div>
 
-                    {/* ROLES SECTION */}
-                    <div className="col-span-1 md:col-span-3 mt-4 pt-6 border-t border-orange-100">
-                        <div className="flex items-center justify-between mb-4">
-                            <div>
-                                <label className="text-xs font-mono text-orange-600 tracking-[0.2em] uppercase font-medium">Roles</label>
-                                <p className="text-sm text-stone-500 mt-1">Define roles for your event notes.</p>
-                            </div>
-                            <button
-                                onClick={async () => {
-                                    const label = prompt('New role label (e.g., Perceptor):');
-                                    if (label) {
-                                        await manageRoles('create', { label, color: '#f97316' });
-                                    }
-                                }}
-                                className="px-4 py-2 bg-orange-100 text-orange-700 text-xs font-bold rounded-lg hover:bg-orange-200 transition-colors uppercase tracking-wider"
-                            >
-                                + Add Role
-                            </button>
-                        </div>
-
-                        <div className="bg-orange-50/50 rounded-xl border border-orange-100 overflow-hidden">
-                            {roles.length === 0 ? (
-                                <p className="p-4 text-sm text-stone-500 italic">No roles defined.</p>
-                            ) : (
-                                <ul className="divide-y divide-orange-100">
-                                    {roles.map((opt, index) => (
-                                        <li key={opt.id} className="flex items-center justify-between p-3 hover:bg-orange-100 transition-colors">
-                                            <div className="flex items-center gap-3">
-                                                <div className="flex flex-col gap-1">
-                                                    <button
-                                                        disabled={index === 0}
-                                                        onClick={() => {
-                                                            const newOrder = [...roles];
-                                                            [newOrder[index], newOrder[index - 1]] = [newOrder[index - 1], newOrder[index]];
-                                                            reorderRoles(newOrder.map(o => o.id));
-                                                        }}
-                                                        className="text-stone-300 hover:text-orange-500 disabled:opacity-0"
-                                                    >
-                                                        <ChevronUp className="w-3 h-3" />
-                                                    </button>
-                                                    <button
-                                                        disabled={index === roles.length - 1}
-                                                        onClick={() => {
-                                                            const newOrder = [...roles];
-                                                            [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
-                                                            reorderRoles(newOrder.map(o => o.id));
-                                                        }}
-                                                        className="text-stone-300 hover:text-orange-500 disabled:opacity-0"
-                                                    >
-                                                        <ChevronDown className="w-3 h-3" />
-                                                    </button>
-                                                </div>
-                                                <div
-                                                    className="w-3 h-3 rounded-full"
-                                                    style={{ backgroundColor: opt.color || '#ccc' }}
-                                                />
-                                                <span
-                                                    className="font-medium text-stone-700 cursor-pointer hover:underline decoration-orange-300 underline-offset-2"
-                                                    onClick={async () => {
-                                                        const newLabel = prompt('Rename role:', opt.label);
-                                                        if (newLabel && newLabel !== opt.label) {
-                                                            await manageRoles('update', { id: opt.id, label: newLabel });
-                                                        }
-                                                    }}
-                                                >
-                                                    {opt.label}
-                                                </span>
-                                            </div>
-                                            <button
-                                                onClick={() => {
-                                                    if (confirm('Delete this role?')) {
-                                                        manageRoles('delete', { id: opt.id });
-                                                    }
-                                                }}
-                                                className="text-stone-400 hover:text-red-500 transition-colors"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-                    </div>
                 </div>
             </div>
 
