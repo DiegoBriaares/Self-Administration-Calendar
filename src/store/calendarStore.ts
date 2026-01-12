@@ -92,7 +92,7 @@ interface CalendarState {
     viewingPreferences: UserPreferences | null;
     profile: User | null;
     localPreferences: UserPreferences | null;
-    currentView: 'calendar' | 'profile' | 'friends' | 'admin';
+    currentView: 'calendar' | 'profile' | 'friends' | 'roles' | 'admin';
 
     setSelection: (start: Date | null, end: Date | null) => void;
     setSelectionActive: (active: boolean) => void;
@@ -101,6 +101,7 @@ interface CalendarState {
     viewOwnCalendar: () => Promise<void>;
     addEvent: (date: Date, entry: { title: string; time?: string; startTime?: string; link?: string; note?: string; priority?: number | string | null }) => Promise<void>;
     addEventsToRange: (entries: Array<{ title: string; time?: string; startTime?: string; link?: string; note?: string; priority?: number | string | null }>) => Promise<void>;
+    addEventsBulk: (entries: Array<{ title: string; date: string; startTime?: string | null; priority?: number | string | null; link?: string | null; note?: string | null }>) => Promise<void>;
     deleteEvent: (id: string) => Promise<void>;
     editEvent: (event: CalendarEvent) => Promise<void>;
     setViewDate: (date: Date) => void;
@@ -108,6 +109,7 @@ interface CalendarState {
     setLocalPreferences: (prefs: Partial<UserPreferences> & { _updatedAt?: number }) => void;
     navigateToProfile: () => void;
     navigateToFriends: () => void;
+    navigateToRoles: () => void;
     navigateToCalendar: () => void;
     navigateToAdmin: () => void;
 
@@ -302,6 +304,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
         },
         navigateToProfile: () => set({ currentView: 'profile' }),
         navigateToFriends: () => set({ currentView: 'friends' }),
+        navigateToRoles: () => set({ currentView: 'roles' }),
         navigateToCalendar: () => set({ currentView: 'calendar' }),
         navigateToAdmin: () => set({ currentView: 'admin' }),
 
@@ -496,6 +499,56 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
 
                 await fetchEvents();
 
+            } catch (error) {
+                console.error('Failed to save events:', error);
+            }
+        },
+
+        addEventsBulk: async (entries) => {
+            const { token, user, viewMode, fetchEvents } = get();
+            if (!token || !user || viewMode === 'friend') return;
+            if (!entries || entries.length === 0) return;
+
+            const newEvents: CalendarEvent[] = entries
+                .filter((entry) => entry && entry.title && entry.date)
+                .map((entry) => ({
+                    id: crypto.randomUUID(),
+                    title: entry.title,
+                    date: entry.date,
+                    startTime: entry.startTime && entry.startTime.trim() ? entry.startTime.trim() : null,
+                    priority: normalizePriority(entry.priority),
+                    note: entry.note?.trim() ? entry.note.trim() : null,
+                    link: entry.link?.trim() ? entry.link.trim() : null
+                }));
+
+            if (newEvents.length === 0) return;
+
+            try {
+                const response = await fetch(`${API_URL}/events`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ events: newEvents }),
+                });
+
+                if (response.status === 401 || response.status === 403) {
+                    logoutAndReset();
+                    return;
+                }
+
+                set((state) => {
+                    const merged = { ...state.events };
+                    newEvents.forEach((ev) => {
+                        if (!merged[ev.date]) merged[ev.date] = [];
+                        merged[ev.date] = [...merged[ev.date], ev];
+                        merged[ev.date].sort((a, b) => (a.startTime || '').localeCompare(b.startTime || '') || a.title.localeCompare(b.title));
+                    });
+                    return { events: merged };
+                });
+
+                await fetchEvents();
             } catch (error) {
                 console.error('Failed to save events:', error);
             }

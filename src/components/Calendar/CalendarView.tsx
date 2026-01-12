@@ -3,8 +3,7 @@ import { MonthGrid } from './MonthGrid';
 import { useCalendarStore } from '../../store/calendarStore';
 import { getNextMonth, getPrevMonth, formatDate } from '../../utils/dateUtils';
 import { ChevronLeft, ChevronRight, Compass } from 'lucide-react';
-import { EventBoard } from './EventBoard';
-import { RangeBoard } from './RangeBoard';
+import { DayAdministration } from './DayAdministration';
 import { DayModal } from './DayModal';
 import { DayConfigModal } from './DayConfigModal';
 
@@ -206,11 +205,8 @@ export const CalendarView: React.FC = () => {
             )}
 
             {activeDate && (
-                <div className="mt-8">
-                    <EventBoard selectedDate={activeDate} />
-                </div>
+                <DayAdministration activeDate={activeDate} />
             )}
-            <RangeBoard />
 
         </div>
     );
