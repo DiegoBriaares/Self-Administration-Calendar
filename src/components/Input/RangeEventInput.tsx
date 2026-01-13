@@ -153,7 +153,7 @@ export const RangeEventInput: React.FC = () => {
                 <div className="overflow-y-auto p-6 custom-scrollbar bg-[linear-gradient(rgba(251,146,60,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(251,146,60,0.05)_1px,transparent_1px)] bg-[size:20px_20px]">
                     <div className="mb-5 border border-orange-200 bg-white rounded-xl p-4 shadow-sm">
                         <div className="flex items-center justify-between flex-wrap gap-3">
-                            <div className="text-[10px] font-mono text-stone-500 uppercase tracking-[0.3em]">Copy Events</div>
+                            <div className="text-[10px] font-mono text-stone-500 uppercase tracking-[0.3em]">Day Events Management</div>
                             <div className="flex items-center gap-2 text-[10px] font-mono text-stone-500 uppercase">
                                 <label htmlFor="copy-source-date" className="tracking-[0.2em]">Source</label>
                                 <select
