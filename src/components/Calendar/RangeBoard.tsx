@@ -5,13 +5,14 @@ import { eachDayOfInterval } from 'date-fns';
 import { CalendarRange } from 'lucide-react';
 
 export const RangeBoard: React.FC = () => {
-    const { selection, events, viewMode, addEventsBulk } = useCalendarStore();
+    const { selection, events, viewMode, addEventsBulk, editEvent } = useCalendarStore();
     const hasSelection = selection.start && selection.end;
     const [sortOrder, setSortOrder] = React.useState<'time' | 'priority'>('time');
     const [copySourceDate, setCopySourceDate] = useState('');
     const [selectedCopyIds, setSelectedCopyIds] = useState<string[]>([]);
     const [targetDates, setTargetDates] = useState<string[]>([]);
     const [targetDateInput, setTargetDateInput] = useState('');
+    const [transferMode, setTransferMode] = useState<'copy' | 'move'>('copy');
 
     const days = useMemo(() => {
         if (!selection.start || !selection.end) return [];
@@ -77,7 +78,7 @@ export const RangeBoard: React.FC = () => {
     }, [events, copySourceDate, sortOrder]);
 
     const allSelected = sourceEvents.length > 0 && selectedCopyIds.length === sourceEvents.length;
-    const canCopy = !isReadOnly && selectedCopyIds.length > 0 && targetDates.length > 0;
+    const canTransfer = !isReadOnly && selectedCopyIds.length > 0 && targetDates.length > 0;
 
     const toggleCopySelection = (id: string) => {
         setSelectedCopyIds((prev) => (
@@ -90,11 +91,20 @@ export const RangeBoard: React.FC = () => {
         setSelectedCopyIds(allSelected ? [] : sourceEvents.map((event) => event.id));
     };
 
-    const handleCopyEvents = async () => {
-        if (!canCopy || !copySourceDate) return;
+    const handleTransferEvents = async () => {
+        if (!canTransfer || !copySourceDate) return;
         const selectedEvents = sourceEvents.filter((event) => selectedCopyIds.includes(event.id));
         if (selectedEvents.length === 0) return;
         if (targetDates.length === 0) return;
+        if (transferMode === 'move') {
+            const targetDate = targetDates[0];
+            if (!targetDate) return;
+            for (const event of selectedEvents) {
+                await editEvent({ ...event, date: targetDate });
+            }
+            setSelectedCopyIds([]);
+            return;
+        }
         const payload = targetDates.flatMap((date) => (
             selectedEvents.map((event) => {
                 const chain: string[] = [];
@@ -137,7 +147,7 @@ export const RangeBoard: React.FC = () => {
             <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 <div className="flex items-center gap-2">
                     <CalendarRange className="w-4 h-4 text-orange-500" />
-                    <div className="text-sm font-medium text-stone-800 tracking-[0.15em] uppercase">Copy Events</div>
+                    <div className="text-sm font-medium text-stone-800 tracking-[0.15em] uppercase">Day Events Management</div>
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="text-sm font-mono text-orange-600">Window: {rangeLabel}</div>
@@ -153,11 +163,23 @@ export const RangeBoard: React.FC = () => {
                             <option value="priority">Priority</option>
                         </select>
                     </div>
+                    <div className="flex items-center gap-2 text-[10px] font-mono text-stone-500 uppercase">
+                        <label htmlFor="range-transfer" className="tracking-[0.2em]">Action</label>
+                        <select
+                            id="range-transfer"
+                            value={transferMode}
+                            onChange={(e) => setTransferMode(e.target.value as 'copy' | 'move')}
+                            className="border border-orange-200 rounded-lg px-2 py-1 text-[11px] text-stone-600 bg-white"
+                        >
+                            <option value="copy">Copy</option>
+                            <option value="move">Move</option>
+                        </select>
+                    </div>
                 </div>
             </div>
             <div className="mb-5 border border-orange-200 bg-white rounded-xl p-4 shadow-sm">
                 <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div className="text-[10px] font-mono text-stone-500 uppercase tracking-[0.3em]">Copy Events</div>
+                    <div className="text-[10px] font-mono text-stone-500 uppercase tracking-[0.3em]">Day Events Management</div>
                     <div className="flex items-center gap-2 text-[10px] font-mono text-stone-500 uppercase">
                         <label htmlFor="range-copy-source" className="tracking-[0.2em]">Source</label>
                         <select
@@ -184,7 +206,7 @@ export const RangeBoard: React.FC = () => {
                 <div className="mt-3 flex flex-col gap-2">
                     {sourceEvents.length === 0 ? (
                         <div className="text-xs text-stone-400 font-mono">
-                            No events to copy for the selected day.
+                            No events to manage for the selected day.
                         </div>
                     ) : (
                         sourceEvents.map((event) => (
@@ -237,11 +259,11 @@ export const RangeBoard: React.FC = () => {
                     </div>
                     <button
                         type="button"
-                        onClick={handleCopyEvents}
-                        disabled={!canCopy}
+                        onClick={handleTransferEvents}
+                        disabled={!canTransfer}
                         className="px-4 py-2 bg-orange-400 text-white text-xs font-mono font-bold hover:bg-orange-500 transition-colors rounded-lg disabled:opacity-50"
                     >
-                        Copy Selected
+                        {transferMode === 'move' ? 'Move Selected' : 'Copy Selected'}
                     </button>
                 </div>
             </div>
