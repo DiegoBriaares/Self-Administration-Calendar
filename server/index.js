@@ -60,6 +60,18 @@ function initDb(onReady) {
       resources TEXT,
       unlock_date TEXT
     )`);
+        db.run(`CREATE TABLE IF NOT EXISTS postponed_events (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      date TEXT,
+      user_id TEXT NOT NULL,
+      start_time TEXT,
+      priority INTEGER,
+      note TEXT,
+      link TEXT,
+      updated_at INTEGER DEFAULT 0,
+      resources TEXT
+    )`);
 
         db.run(`CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -157,7 +169,7 @@ function migrateEventsSchemaIfNeeded(onReady) {
                 if (idxErr) {
                     console.error('Error ensuring events index:', idxErr.message);
                 }
-                ensureFriendshipsTable(onReady);
+                migratePostponedEventsSchemaIfNeeded(() => ensureFriendshipsTable(onReady));
             });
         };
 
@@ -222,6 +234,92 @@ function migrateEventsSchemaIfNeeded(onReady) {
                     console.log('Migration complete: events table reorganized');
                 }
                 ensureIndex();
+            });
+        });
+    });
+}
+
+function migratePostponedEventsSchemaIfNeeded(onReady) {
+    db.all('PRAGMA table_info(postponed_events)', (err, rows) => {
+        if (err) {
+            console.error('Error inspecting postponed_events schema:', err.message);
+            onReady?.();
+            return;
+        }
+        if (!rows || rows.length === 0) {
+            db.run(`CREATE TABLE IF NOT EXISTS postponed_events (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        date TEXT,
+        user_id TEXT NOT NULL,
+        start_time TEXT,
+        priority INTEGER,
+        note TEXT,
+        link TEXT,
+        updated_at INTEGER DEFAULT 0,
+        resources TEXT
+      )`, (createErr) => {
+                if (createErr) {
+                    console.error('Error creating postponed_events table:', createErr.message);
+                    onReady?.();
+                    return;
+                }
+                db.run('CREATE INDEX IF NOT EXISTS idx_postponed_events_user ON postponed_events(user_id)', () => {
+                    onReady?.();
+                });
+            });
+            return;
+        }
+
+        const hasStartTime = rows.some((row) => row.name === 'start_time');
+        const hasPriority = rows.some((row) => row.name === 'priority');
+        const hasNote = rows.some((row) => row.name === 'note');
+        const hasLink = rows.some((row) => row.name === 'link');
+        const hasUpdatedAt = rows.some((row) => row.name === 'updated_at');
+        const hasResources = rows.some((row) => row.name === 'resources');
+
+        const hasDateNotNull = rows.some((row) => row.name === 'date' && row.notnull === 1);
+
+        db.serialize(() => {
+            if (hasDateNotNull) {
+                db.run(`CREATE TABLE IF NOT EXISTS postponed_events_new (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        date TEXT,
+        user_id TEXT NOT NULL,
+        start_time TEXT,
+        priority INTEGER,
+        note TEXT,
+        link TEXT,
+        updated_at INTEGER DEFAULT 0,
+        resources TEXT
+      )`);
+                db.run(`INSERT INTO postponed_events_new (id, title, date, user_id, start_time, priority, note, link, updated_at, resources)
+                        SELECT id, title, date, user_id, start_time, priority, note, link, updated_at, resources FROM postponed_events`);
+                db.run('DROP TABLE postponed_events');
+                db.run('ALTER TABLE postponed_events_new RENAME TO postponed_events');
+            }
+            const addCol = (col, type) => {
+                db.run(`ALTER TABLE postponed_events ADD COLUMN ${col} ${type}`, (e) => {
+                    if (e) console.error(`Error adding postponed_events.${col}:`, e.message);
+                });
+            };
+            if (!hasStartTime) addCol('start_time', 'TEXT');
+            if (!hasPriority) addCol('priority', 'INTEGER');
+            if (!hasNote) addCol('note', 'TEXT');
+            if (!hasLink) addCol('link', 'TEXT');
+            if (!hasUpdatedAt) {
+                db.run('ALTER TABLE postponed_events ADD COLUMN updated_at INTEGER DEFAULT 0', (e) => {
+                    if (e) console.error('Error adding postponed_events.updated_at:', e.message);
+                });
+            }
+            if (!hasResources) {
+                db.run('ALTER TABLE postponed_events ADD COLUMN resources TEXT', (e) => {
+                    if (e) console.error('Error adding postponed_events.resources:', e.message);
+                });
+            }
+            db.run('CREATE INDEX IF NOT EXISTS idx_postponed_events_user ON postponed_events(user_id)', () => {
+                onReady?.();
             });
         });
     });
@@ -539,6 +637,146 @@ app.delete('/events/:id', (req, res) => {
     db.run('DELETE FROM events WHERE id = ? AND user_id = ?', [id, req.user.id], function (err) {
         if (err) {
             console.error('Error deleting event:', err.message);
+            return res.status(500).json({ error: 'Failed to delete event' });
+        }
+        if (this.changes === 0) return res.status(404).json({ error: 'Event not found' });
+        res.json({ message: 'success' });
+    });
+});
+
+// Protect postponed events routes
+app.use('/postponed-events', authenticateToken);
+
+app.get('/postponed-events', (req, res) => {
+    const sql = 'SELECT id, title, date, start_time as startTime, priority, note, link, updated_at as version, resources FROM postponed_events WHERE user_id = ? ORDER BY updated_at DESC';
+    db.all(sql, [req.user.id], (err, rows) => {
+        if (err) {
+            res.status(400).json({ error: err.message });
+            return;
+        }
+        res.json({
+            message: 'success',
+            data: rows
+        });
+    });
+});
+
+app.post('/postponed-events', (req, res) => {
+    const events = req.body.events;
+    if (!events || !Array.isArray(events)) {
+        res.status(400).json({ error: 'Invalid input: events array required' });
+        return;
+    }
+
+    const stmt = db.prepare('INSERT INTO postponed_events (id, title, date, user_id, start_time, priority, note, link, updated_at, resources) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+
+    db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
+
+        events.forEach(event => {
+            if (!event.title) {
+                console.error('Invalid postponed event payload skipped');
+                return;
+            }
+            const eventId = event.id || crypto.randomUUID();
+            const cleanTime = event.startTime && typeof event.startTime === 'string' && event.startTime.trim() !== '' ? event.startTime.trim() : null;
+            const cleanDate = typeof event.date === 'string' ? event.date.trim() : '';
+            const cleanPriority = (event.priority === null || event.priority === undefined || (typeof event.priority === 'string' && event.priority.trim() === ''))
+                ? null
+                : (Number.isFinite(Number(event.priority)) ? Math.trunc(Number(event.priority)) : null);
+            const cleanNote = event.note && typeof event.note === 'string' && event.note.trim() !== '' ? event.note.trim() : null;
+            const cleanLink = event.link && typeof event.link === 'string' && event.link.trim() !== '' ? event.link.trim() : null;
+            let cleanResources = null;
+            try {
+                if (event.resources) {
+                    cleanResources = typeof event.resources === 'string' ? event.resources : JSON.stringify(event.resources);
+                }
+            } catch (e) { }
+            const now = Date.now();
+            stmt.run(eventId, event.title, cleanDate, req.user.id, cleanTime, cleanPriority, cleanNote, cleanLink, now, cleanResources, (err) => {
+                if (err) {
+                    console.error('Error inserting postponed event:', err.message);
+                }
+            });
+        });
+
+        db.run('COMMIT', (err) => {
+            if (err) {
+                res.status(500).json({ error: err.message });
+                return;
+            }
+            res.json({ message: 'success', count: events.length });
+        });
+    });
+
+    stmt.finalize();
+});
+
+app.delete('/postponed-events', (req, res) => {
+    db.run('DELETE FROM postponed_events WHERE user_id = ?', [req.user.id], (err) => {
+        if (err) {
+            res.status(400).json({ error: err.message });
+            return;
+        }
+        res.json({ message: 'deleted all postponed events for user' });
+    });
+});
+
+app.put('/postponed-events/:id', (req, res) => {
+    const { id } = req.params;
+    const { title, date, startTime, priority, note, link, version, resources } = req.body;
+    if (!title) return res.status(400).json({ error: 'Missing title' });
+
+    const cleanTime = startTime && typeof startTime === 'string' && startTime.trim() !== '' ? startTime.trim() : null;
+    const cleanDate = typeof date === 'string' ? date.trim() : '';
+    const cleanPriority = (priority === null || priority === undefined || (typeof priority === 'string' && priority.trim() === ''))
+        ? null
+        : (Number.isFinite(Number(priority)) ? Math.trunc(Number(priority)) : null);
+    const cleanNote = note && typeof note === 'string' && note.trim() !== '' ? note.trim() : null;
+    const cleanLink = link && typeof link === 'string' && link.trim() !== '' ? link.trim() : null;
+    let cleanResources = null;
+    try {
+        if (resources) {
+            cleanResources = typeof resources === 'string' ? resources : JSON.stringify(resources);
+        }
+    } catch (e) { }
+
+    const newVersion = Date.now();
+
+    if (version) {
+        db.get('SELECT updated_at FROM postponed_events WHERE id = ?', [id], (err, row) => {
+            if (err) return res.status(500).json({ error: 'Database error' });
+            if (!row) return res.status(404).json({ error: 'Event not found' });
+            if (row.updated_at && row.updated_at > version) {
+                return res.status(409).json({ error: 'Conflict: Event has been modified by another user.', serverVersion: row.updated_at });
+            }
+            performUpdate();
+        });
+    } else {
+        performUpdate();
+    }
+
+    function performUpdate() {
+        db.run(
+            `UPDATE postponed_events SET title = ?, date = ?, start_time = ?, priority = ?, note = ?, link = ?, updated_at = ?, resources = ? WHERE id = ? AND user_id = ?`,
+            [title, cleanDate, cleanTime, cleanPriority, cleanNote, cleanLink, newVersion, cleanResources, id, req.user.id],
+            function (err) {
+                if (err) {
+                    console.error('Error updating postponed event:', err.message);
+                    return res.status(500).json({ error: 'Failed to update event' });
+                }
+                if (this.changes === 0) return res.status(404).json({ error: 'Event not found or permission denied' });
+                res.json({ message: 'success', version: newVersion });
+            }
+        );
+    }
+});
+
+app.delete('/postponed-events/:id', (req, res) => {
+    const { id } = req.params;
+    db.run('DELETE FROM postponed_events WHERE id = ? AND user_id = ?', [id, req.user.id], function (err) {
+        if (err) {
+            console.error('Error deleting postponed event:', err.message);
             return res.status(500).json({ error: 'Failed to delete event' });
         }
         if (this.changes === 0) return res.status(404).json({ error: 'Event not found' });
@@ -944,6 +1182,7 @@ app.delete('/admin/users/:id', authenticateToken, requireAdmin, (req, res) => {
     const { id } = req.params;
     db.serialize(() => {
         db.run('DELETE FROM events WHERE user_id = ?', [id]);
+        db.run('DELETE FROM postponed_events WHERE user_id = ?', [id]);
         db.run('DELETE FROM friendships WHERE user_a = ? OR user_b = ?', [id, id]);
         db.run('DELETE FROM users WHERE id = ?', [id], function (err) {
             if (err) {
@@ -994,6 +1233,7 @@ app.delete('/admin/users/bulk', authenticateToken, requireAdmin, (req, res) => {
     db.serialize(() => {
         // 1. Delete associated events
         db.run(`DELETE FROM events WHERE user_id IN (${placeholders})`, safeIds);
+        db.run(`DELETE FROM postponed_events WHERE user_id IN (${placeholders})`, safeIds);
 
         // 2. Delete associated friendships
         db.run(`DELETE FROM friendships WHERE user_a IN (${placeholders}) OR user_b IN (${placeholders})`, [...safeIds, ...safeIds]);

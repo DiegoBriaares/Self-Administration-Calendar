@@ -5,7 +5,7 @@ import { eachDayOfInterval } from 'date-fns';
 import { CalendarRange } from 'lucide-react';
 
 export const RangeBoard: React.FC = () => {
-    const { selection, events, viewMode, addEventsBulk, editEvent } = useCalendarStore();
+    const { selection, events, viewMode, addEventsBulk, editEvent, addPostponedEventsBulk, deleteEvent } = useCalendarStore();
     const hasSelection = selection.start && selection.end;
     const [sortOrder, setSortOrder] = React.useState<'time' | 'priority'>('time');
     const [copySourceDate, setCopySourceDate] = useState('');
@@ -79,6 +79,7 @@ export const RangeBoard: React.FC = () => {
 
     const allSelected = sourceEvents.length > 0 && selectedCopyIds.length === sourceEvents.length;
     const canTransfer = !isReadOnly && selectedCopyIds.length > 0 && targetDates.length > 0;
+    const canPostpone = !isReadOnly && selectedCopyIds.length > 0;
 
     const toggleCopySelection = (id: string) => {
         setSelectedCopyIds((prev) => (
@@ -100,7 +101,19 @@ export const RangeBoard: React.FC = () => {
             const targetDate = targetDates[0];
             if (!targetDate) return;
             for (const event of selectedEvents) {
-                await editEvent({ ...event, date: targetDate });
+                const chain: string[] = [];
+                (event.originDates || []).forEach((origin) => {
+                    if (origin && !chain.includes(origin)) {
+                        chain.push(origin);
+                    }
+                });
+                if (copySourceDate && !chain.includes(copySourceDate)) {
+                    chain.push(copySourceDate);
+                }
+                if (!chain.includes(targetDate)) {
+                    chain.push(targetDate);
+                }
+                await editEvent({ ...event, date: targetDate, originDates: chain.length > 0 ? chain : null });
             }
             setSelectedCopyIds([]);
             return;
@@ -116,6 +129,9 @@ export const RangeBoard: React.FC = () => {
                 if (copySourceDate && !chain.includes(copySourceDate)) {
                     chain.push(copySourceDate);
                 }
+                if (!chain.includes(date)) {
+                    chain.push(date);
+                }
                 return {
                     title: event.title,
                     date,
@@ -128,6 +144,38 @@ export const RangeBoard: React.FC = () => {
             })
         ));
         await addEventsBulk(payload);
+        setSelectedCopyIds([]);
+    };
+
+    const handlePostponeEvents = async () => {
+        if (!canPostpone || !copySourceDate) return;
+        const selectedEvents = sourceEvents.filter((event) => selectedCopyIds.includes(event.id));
+        if (selectedEvents.length === 0) return;
+        const payload = selectedEvents.map((event) => {
+            const chain: string[] = [];
+            (event.originDates || []).forEach((origin) => {
+                if (origin && !chain.includes(origin)) {
+                    chain.push(origin);
+                }
+            });
+            if (copySourceDate && !chain.includes(copySourceDate)) {
+                chain.push(copySourceDate);
+            }
+            return {
+                title: event.title,
+                startTime: event.startTime ?? null,
+                priority: event.priority ?? null,
+                link: event.link ?? null,
+                note: event.note ?? null,
+                originDates: chain.length > 0 ? chain : null
+            };
+        });
+        await addPostponedEventsBulk(payload);
+        if (transferMode === 'move') {
+            for (const event of selectedEvents) {
+                await deleteEvent(event.id);
+            }
+        }
         setSelectedCopyIds([]);
     };
 
@@ -264,6 +312,14 @@ export const RangeBoard: React.FC = () => {
                         className="px-4 py-2 bg-orange-400 text-white text-xs font-mono font-bold hover:bg-orange-500 transition-colors rounded-lg disabled:opacity-50"
                     >
                         {transferMode === 'move' ? 'Move Selected' : 'Copy Selected'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handlePostponeEvents}
+                        disabled={!canPostpone}
+                        className="px-4 py-2 bg-stone-700 text-white text-xs font-mono font-bold hover:bg-stone-800 transition-colors rounded-lg disabled:opacity-50"
+                    >
+                        {transferMode === 'move' ? 'Move to Postponed' : 'Copy to Postponed'}
                     </button>
                 </div>
             </div>

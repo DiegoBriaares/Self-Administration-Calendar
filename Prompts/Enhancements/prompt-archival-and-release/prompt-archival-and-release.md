@@ -1,4 +1,4 @@
-Please make a list of the prompts I have gave you in this conversartion. Determine if each one corresponds
+prompt: Please make a list of the prompts I have gave you in this conversartion. Determine if each one corresponds
   to an enhacenment or a bug, then determine the enhacement/bug, all of the prompts related to same enhancement/bug
   would end in a same folder (ill clarify next), and group prompts related to a same issue into a same file,in such
   file the prompts would be seppared by a blank line and then a line with --- and the another blank line, sorted by
@@ -14,8 +14,19 @@ Please make a list of the prompts I have gave you in this conversartion. Determi
   (note that i dont want the complete report just a small description that serves as context for future prompts that
   were performed). The format to store them and linked them to the prompts is: in the file where the prompts are
   stored, for each prompt this is the format: prompt: <prompt>, and in the next line: answer: <brief description> +
-  <suggestion>. 
+  <suggestion>.
 
 leave a blank line between prompt:<>, answer: <>, sugestion:<> in the files with the prompts.
 
 Also from the bug/enhancements folder, infeer/deduce a natural language explanation of the enhacenment/bug, and add to calendar-app/Bugs or calendar-app/Enhancements (acordingly) a file named xxx - y, where xxx is the next prefix number of bug/enhacenment (accordingly to the greatest numnber in the directory (including inside /Solved) and y is the folder name, the content of the file is the explanation.
+
+Give a name to a file and a description inside it consistent to the changes based on the provided prompt, the Bug/Enhacenment resolved, and the actual changes. Choose an excellent and precise name and description. Store such file in /Users/digogonz/Desktop/Desarrollo/calendar-app/ChangeLog/
+
+Push the latest changes into the repo https://github.com/DiegoBriaares/Self-Administration-Calendar as a Pull Request. Give a name and description consistent to the changes based on the provided prompt, the Bug/Enhacenment resolved, and the actual changes. Choose an excellent and precise name and description.
+Deploy the changes to /Users/digogonz/Desktop/Calendario/cal-ap using /Users/digogonz/Desktop/Desarrollo/calendar-app/scripts/deploy_to_prod.sh   
+
+Then run scripts/archive_prod_snapshot.sh to backup this new version.
+
+answer: Grouped prompts into issue folders/files, added issue explanations, and wrote a changelog entry for the postponed events work.
+
+suggestion: If you want a different grouping or naming scheme, tell me what to adjust.

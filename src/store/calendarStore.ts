@@ -21,6 +21,7 @@ export interface CalendarEvent {
     note?: string | null;
     link?: string | null;
     originDates?: string[] | null;
+    wasPostponed?: boolean | null;
 }
 
 export interface Role {
@@ -51,16 +52,19 @@ export interface AdminEvent {
     username?: string;
 }
 
-const parseOriginDates = (resources: any) => {
-    if (!resources) return null;
+const parseEventResources = (resources: any) => {
+    if (!resources) return { originDates: null, wasPostponed: null };
     try {
         const parsed = typeof resources === 'string' ? JSON.parse(resources) : resources;
         const origins = parsed?.originDates;
-        if (!Array.isArray(origins)) return null;
+        const wasPostponed = parsed?.wasPostponed === true;
+        if (!Array.isArray(origins)) {
+            return { originDates: null, wasPostponed: wasPostponed ? true : null };
+        }
         const cleaned = origins.filter((item: any) => typeof item === 'string' && item.trim() !== '');
-        return cleaned.length > 0 ? cleaned : null;
+        return { originDates: cleaned.length > 0 ? cleaned : null, wasPostponed: wasPostponed ? true : null };
     } catch {
-        return null;
+        return { originDates: null, wasPostponed: null };
     }
 };
 
@@ -97,6 +101,7 @@ interface CalendarState {
 
     // Calendar State
     events: Record<string, CalendarEvent[]>;
+    postponedEvents: CalendarEvent[];
     selection: Selection;
     selectionActive: boolean;
     viewDate: Date;
@@ -106,18 +111,23 @@ interface CalendarState {
     viewingPreferences: UserPreferences | null;
     profile: User | null;
     localPreferences: UserPreferences | null;
-    currentView: 'calendar' | 'profile' | 'friends' | 'roles' | 'admin';
+    currentView: 'calendar' | 'postponed' | 'profile' | 'friends' | 'roles' | 'admin';
 
     setSelection: (start: Date | null, end: Date | null) => void;
     setSelectionActive: (active: boolean) => void;
     fetchEvents: () => Promise<void>;
+    fetchPostponedEvents: () => Promise<void>;
     fetchFriendEvents: (friendId: string, friendName: string) => Promise<void>;
     viewOwnCalendar: () => Promise<void>;
     addEvent: (date: Date, entry: { title: string; time?: string; startTime?: string; link?: string; note?: string; priority?: number | string | null }) => Promise<void>;
     addEventsToRange: (entries: Array<{ title: string; time?: string; startTime?: string; link?: string; note?: string; priority?: number | string | null }>) => Promise<void>;
-    addEventsBulk: (entries: Array<{ title: string; date: string; startTime?: string | null; priority?: number | string | null; link?: string | null; note?: string | null; originDates?: string[] | null }>) => Promise<void>;
+    addEventsBulk: (entries: Array<{ title: string; date: string; startTime?: string | null; priority?: number | string | null; link?: string | null; note?: string | null; originDates?: string[] | null; wasPostponed?: boolean | null }>) => Promise<void>;
     deleteEvent: (id: string) => Promise<void>;
     editEvent: (event: CalendarEvent) => Promise<void>;
+    addPostponedEvent: (entry: { title: string; time?: string; startTime?: string; link?: string; note?: string; priority?: number | string | null }) => Promise<void>;
+    addPostponedEventsBulk: (entries: Array<{ title: string; startTime?: string | null; priority?: number | string | null; link?: string | null; note?: string | null; originDates?: string[] | null }>) => Promise<void>;
+    deletePostponedEvent: (id: string) => Promise<void>;
+    editPostponedEvent: (event: CalendarEvent) => Promise<void>;
     setViewDate: (date: Date) => void;
     clearSelection: () => void;
     setLocalPreferences: (prefs: Partial<UserPreferences> & { _updatedAt?: number }) => void;
@@ -126,6 +136,7 @@ interface CalendarState {
     navigateToRoles: () => void;
     navigateToCalendar: () => void;
     navigateToAdmin: () => void;
+    navigateToPostponed: () => void;
 
     // Social
     users: User[];
@@ -184,6 +195,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
             user: null,
             token: null,
             events: {},
+            postponedEvents: [],
             friends: [],
             users: [],
             viewMode: 'self',
@@ -213,6 +225,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
 
         // Calendar Initial State
         events: {},
+        postponedEvents: [],
         selection: { start: null, end: null },
         selectionActive: false,
         viewDate: new Date(),
@@ -321,6 +334,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
         navigateToRoles: () => set({ currentView: 'roles' }),
         navigateToCalendar: () => set({ currentView: 'calendar' }),
         navigateToAdmin: () => set({ currentView: 'admin' }),
+        navigateToPostponed: () => set({ currentView: 'postponed' }),
 
         fetchEvents: async () => {
             const { token } = get();
@@ -344,6 +358,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     const eventsMap: Record<string, CalendarEvent[]> = {};
                     data.data.forEach((raw: any) => {
                         const timeVal = raw.startTime ?? raw.start_time ?? null;
+                        const { originDates, wasPostponed } = parseEventResources(raw.resources);
                         const event: CalendarEvent = {
                             id: raw.id,
                             title: raw.title,
@@ -352,7 +367,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                             priority: normalizePriority(raw.priority),
                             note: raw.note || null,
                             link: raw.link || null,
-                            originDates: parseOriginDates(raw.resources)
+                            originDates,
+                            wasPostponed
                         };
                         if (!eventsMap[event.date]) {
                             eventsMap[event.date] = [];
@@ -381,6 +397,48 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                 }
             } catch (error) {
                 console.error('Failed to fetch events:', error);
+            }
+        },
+        fetchPostponedEvents: async () => {
+            const { token, viewMode } = get();
+            if (!token || viewMode === 'friend') return;
+            try {
+                const response = await fetch(`${API_URL}/postponed-events`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.status === 401 || response.status === 403) {
+                    logoutAndReset();
+                    return;
+                }
+                const data = await response.json();
+                if (data.message === 'success') {
+                    const eventsList: CalendarEvent[] = [];
+                    data.data.forEach((raw: any) => {
+                        const timeVal = raw.startTime ?? raw.start_time ?? null;
+                        const { originDates, wasPostponed } = parseEventResources(raw.resources);
+                        const event: CalendarEvent = {
+                            id: raw.id,
+                            title: raw.title,
+                            date: raw.date || '',
+                            startTime: timeVal ? String(timeVal) : null,
+                            priority: normalizePriority(raw.priority),
+                            note: raw.note || null,
+                            link: raw.link || null,
+                            originDates,
+                            wasPostponed
+                        };
+                        eventsList.push(event);
+                    });
+                    const sorted = eventsList.sort((a, b) => {
+                        const tA = a.startTime || '';
+                        const tB = b.startTime || '';
+                        if (tA !== tB) return tA.localeCompare(tB);
+                        return a.title.localeCompare(b.title);
+                    });
+                    set({ postponedEvents: sorted });
+                }
+            } catch (error) {
+                console.error('Failed to fetch postponed events:', error);
             }
         },
 
@@ -540,7 +598,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     priority: normalizePriority(entry.priority),
                     note: entry.note?.trim() ? entry.note.trim() : null,
                     link: entry.link?.trim() ? entry.link.trim() : null,
-                    originDates: entry.originDates && entry.originDates.length > 0 ? entry.originDates : null
+                    originDates: entry.originDates && entry.originDates.length > 0 ? entry.originDates : null,
+                    wasPostponed: entry.wasPostponed ? true : null
                 }));
 
             if (newEvents.length === 0) return;
@@ -555,7 +614,9 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     body: JSON.stringify({
                         events: newEvents.map((event) => ({
                             ...event,
-                            resources: event.originDates ? { originDates: event.originDates } : null
+                            resources: (event.originDates || event.wasPostponed)
+                                ? { originDates: event.originDates, wasPostponed: event.wasPostponed ? true : undefined }
+                                : null
                         }))
                     }),
                 });
@@ -594,7 +655,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                 priority: normalizePriority(entry.priority),
                 note: entry.note?.trim() ? entry.note.trim() : null,
                 link: entry.link?.trim() ? entry.link.trim() : null,
-                originDates: null
+                originDates: null,
+                wasPostponed: null
             };
             try {
                 const res = await fetch(`${API_URL}/events`, {
@@ -669,7 +731,9 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                         priority: normalizePriority(event.priority),
                         note: event.note || null,
                         link: event.link || null,
-                        resources: event.originDates ? { originDates: event.originDates } : null
+                        resources: (event.originDates || event.wasPostponed)
+                            ? { originDates: event.originDates, wasPostponed: event.wasPostponed ? true : undefined }
+                            : null
                     })
                 });
                 if (res.status === 401 || res.status === 403) {
@@ -692,6 +756,166 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
 
         setViewDate: (date) => set({ viewDate: date }),
         clearSelection: () => set({ selection: { start: null, end: null }, selectionActive: false }),
+
+        addPostponedEventsBulk: async (entries) => {
+            const { token, user, viewMode, fetchPostponedEvents } = get();
+            if (!token || !user || viewMode === 'friend') return;
+            if (!entries || entries.length === 0) return;
+
+            const newEvents: CalendarEvent[] = entries
+                .filter((entry) => entry && entry.title)
+                .map((entry) => ({
+                    id: crypto.randomUUID(),
+                    title: entry.title,
+                    date: '',
+                    startTime: entry.startTime && entry.startTime.trim() ? entry.startTime.trim() : null,
+                    priority: normalizePriority(entry.priority),
+                    note: entry.note?.trim() ? entry.note.trim() : null,
+                    link: entry.link?.trim() ? entry.link.trim() : null,
+                    originDates: entry.originDates && entry.originDates.length > 0 ? entry.originDates : null,
+                    wasPostponed: null
+                }));
+
+            if (newEvents.length === 0) return;
+
+            try {
+                const response = await fetch(`${API_URL}/postponed-events`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        events: newEvents.map((event) => ({
+                            ...event,
+                            resources: event.originDates ? { originDates: event.originDates } : null
+                        }))
+                    }),
+                });
+
+                if (response.status === 401 || response.status === 403) {
+                    logoutAndReset();
+                    return;
+                }
+
+                set((state) => ({
+                    postponedEvents: [...state.postponedEvents, ...newEvents].sort((a, b) => {
+                        const tA = a.startTime || '';
+                        const tB = b.startTime || '';
+                        if (tA !== tB) return tA.localeCompare(tB);
+                        return a.title.localeCompare(b.title);
+                    })
+                }));
+
+                await fetchPostponedEvents();
+            } catch (error) {
+                console.error('Failed to save postponed events:', error);
+            }
+        },
+
+        addPostponedEvent: async (entry) => {
+            const { token, user, viewMode, fetchPostponedEvents } = get();
+            if (!token || !user || viewMode === 'friend') return;
+            if (!entry.title) return;
+            const rawTime = entry.startTime ?? entry.time;
+            const newEvent: CalendarEvent = {
+                id: crypto.randomUUID(),
+                title: entry.title,
+                date: '',
+                startTime: rawTime && rawTime.trim() ? rawTime.trim() : null,
+                priority: normalizePriority(entry.priority),
+                note: entry.note?.trim() ? entry.note.trim() : null,
+                link: entry.link?.trim() ? entry.link.trim() : null,
+                originDates: null,
+                wasPostponed: null
+            };
+            try {
+                const res = await fetch(`${API_URL}/postponed-events`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ events: [{ ...newEvent, resources: null }] })
+                });
+                if (res.status === 401 || res.status === 403) {
+                    logoutAndReset();
+                    return;
+                }
+
+                set((state) => ({
+                    postponedEvents: [...state.postponedEvents, newEvent].sort((a, b) => {
+                        const tA = a.startTime || '';
+                        const tB = b.startTime || '';
+                        if (tA !== tB) return tA.localeCompare(tB);
+                        return a.title.localeCompare(b.title);
+                    })
+                }));
+
+                await fetchPostponedEvents();
+            } catch (e) {
+                console.error('Failed to add postponed event', e);
+            }
+        },
+
+        deletePostponedEvent: async (id: string) => {
+            const { token, fetchPostponedEvents, viewMode } = get();
+            if (!token || viewMode === 'friend') return;
+            try {
+                const res = await fetch(`${API_URL}/postponed-events/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.status === 401 || res.status === 403) {
+                    logoutAndReset();
+                    return;
+                }
+                set((state) => ({
+                    postponedEvents: state.postponedEvents.filter((ev) => ev.id !== id)
+                }));
+                await fetchPostponedEvents();
+            } catch (e) {
+                console.error('Failed to delete postponed event', e);
+            }
+        },
+
+        editPostponedEvent: async (event) => {
+            const { token, fetchPostponedEvents, viewMode } = get();
+            if (!token || viewMode === 'friend') return;
+            try {
+                const res = await fetch(`${API_URL}/postponed-events/${event.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: event.title,
+                        date: event.date,
+                        startTime: event.startTime || null,
+                        priority: normalizePriority(event.priority),
+                        note: event.note || null,
+                        link: event.link || null,
+                        resources: event.originDates ? { originDates: event.originDates } : null
+                    })
+                });
+                if (res.status === 401 || res.status === 403) {
+                    logoutAndReset();
+                    return;
+                }
+                set((state) => ({
+                    postponedEvents: state.postponedEvents.map((ev) => ev.id === event.id ? { ...ev, ...event } : ev).sort((a, b) => {
+                        const tA = a.startTime || '';
+                        const tB = b.startTime || '';
+                        if (tA !== tB) return tA.localeCompare(tB);
+                        return a.title.localeCompare(b.title);
+                    })
+                }));
+                await fetchPostponedEvents();
+            } catch (e) {
+                console.error('Failed to edit postponed event', e);
+            }
+        },
 
         fetchUsers: async () => {
             const { token, user } = get();
@@ -1104,6 +1328,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
         bootstrap: async () => {
             await Promise.all([
                 get().fetchEvents(),
+                get().fetchPostponedEvents(),
                 get().fetchFriends(),
                 get().fetchUsers(),
                 get().fetchProfile(),

@@ -117,6 +117,9 @@ export const RangeEventInput: React.FC = () => {
                 if (copySourceDate && !chain.includes(copySourceDate)) {
                     chain.push(copySourceDate);
                 }
+                if (!chain.includes(date)) {
+                    chain.push(date);
+                }
                 return {
                     title: event.title,
                     date,

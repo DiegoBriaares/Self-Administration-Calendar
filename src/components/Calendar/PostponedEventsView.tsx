@@ -1,0 +1,46 @@
+import React, { useEffect } from 'react';
+import { CalendarRange, CornerDownLeft } from 'lucide-react';
+import { useCalendarStore } from '../../store/calendarStore';
+import { PostponedEventBoard } from './PostponedEventBoard';
+import { PostponedEventsInformation } from './PostponedEventsInformation';
+import { PostponedRangeBoard } from './PostponedRangeBoard';
+
+export const PostponedEventsView: React.FC = () => {
+    const { fetchPostponedEvents, navigateToCalendar } = useCalendarStore();
+
+    useEffect(() => {
+        fetchPostponedEvents();
+    }, [fetchPostponedEvents]);
+
+    return (
+        <div className="flex flex-col w-full max-w-[1600px] mx-auto p-4 sm:p-8">
+            <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
+                <div>
+                    <div className="text-[10px] font-mono text-stone-500 tracking-[0.3em] uppercase mb-2">Postponed Events</div>
+                    <div className="text-2xl text-stone-800 tracking-[0.2em]">Administration</div>
+                </div>
+                <button
+                    type="button"
+                    onClick={navigateToCalendar}
+                    className="flex items-center gap-2 px-4 py-2 bg-white/80 border border-orange-200 hover:bg-orange-50 hover:border-orange-400 transition-all rounded-xl shadow-sm text-sm font-medium text-stone-600"
+                >
+                    <CornerDownLeft className="w-4 h-4 text-orange-500" />
+                    Back to Calendar
+                </button>
+            </div>
+
+            <div className="w-full board-panel p-4 rounded-2xl mb-6">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center gap-3">
+                        <CalendarRange className="w-4 h-4 text-orange-500" />
+                        <span className="text-[11px] font-mono text-stone-500 uppercase tracking-[0.25em]">Postponed Vault</span>
+                    </div>
+                </div>
+            </div>
+
+            <PostponedEventBoard />
+            <PostponedEventsInformation />
+            <PostponedRangeBoard />
+        </div>
+    );
+};

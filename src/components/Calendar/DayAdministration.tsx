@@ -13,7 +13,7 @@ export const DayAdministration: React.FC<DayAdministrationProps> = ({ activeDate
     return (
         <div className="mt-8">
             <div className="mb-6">
-                <div className="text-2xl text-stone-800 tracking-[0.2em]">Day Administration</div>
+                <div className="text-2xl text-stone-800 tracking-[0.2em]">Administration</div>
             </div>
             <EventBoard selectedDate={activeDate} />
             <DayEventsInformation activeDate={activeDate} />

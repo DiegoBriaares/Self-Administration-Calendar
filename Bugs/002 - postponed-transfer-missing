@@ -1,0 +1,1 @@
+Calendar-to-postponed transfers failed because postponed bulk inserts filtered out date-less entries after tracking changes, causing moved/copied events to disappear.
