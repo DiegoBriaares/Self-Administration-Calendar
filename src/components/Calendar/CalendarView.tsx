@@ -20,7 +20,8 @@ export const CalendarView: React.FC = () => {
         events,
         viewMode,
         viewingUserId,
-        viewingUsername
+        viewingUsername,
+        navigateToPostponed
     } = useCalendarStore();
     const [isSelecting, setIsSelecting] = useState(false);
     const [selectionStart, setSelectionStart] = useState<Date | null>(null);
@@ -160,6 +161,18 @@ export const CalendarView: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {viewMode !== 'friend' && (
+                <div className="flex justify-end mb-6">
+                    <button
+                        type="button"
+                        onClick={navigateToPostponed}
+                        className="px-5 py-2.5 bg-white/80 border border-orange-200 hover:bg-orange-50 hover:border-orange-400 transition-all rounded-xl shadow-sm text-sm font-medium text-stone-600 uppercase tracking-wider"
+                    >
+                        Postponed events
+                    </button>
+                </div>
+            )}
 
             {/* Main Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 select-none">

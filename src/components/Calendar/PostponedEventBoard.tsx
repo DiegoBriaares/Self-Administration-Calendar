@@ -1,23 +1,16 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useCalendarStore, type CalendarEvent } from '../../store/calendarStore';
-import { formatDate } from '../../utils/dateUtils';
 import { Clock, Link as LinkIcon, StickyNote, Trash2, Edit3, Plus } from 'lucide-react';
 
-interface EventBoardProps {
-    selectedDate: Date | null;
-}
-
-export const EventBoard: React.FC<EventBoardProps> = ({ selectedDate }) => {
-    const { events, viewMode, addEvent, deleteEvent, editEvent } = useCalendarStore();
+export const PostponedEventBoard: React.FC = () => {
+    const { postponedEvents, viewMode, addPostponedEvent, deletePostponedEvent, editPostponedEvent } = useCalendarStore();
     const [draft, setDraft] = useState({ title: '', time: '', link: '', note: '', priority: '' });
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
     const [sortOrder, setSortOrder] = useState<'time' | 'priority'>('time');
-    if (!selectedDate) return null;
 
-    const dateStr = formatDate(selectedDate);
     const dayEvents = useMemo(() => {
-        const list = events[dateStr] || [];
+        const list = postponedEvents || [];
         const priorityValue = (value?: number | null) => {
             if (value === null || value === undefined) return Number.MAX_SAFE_INTEGER;
             return value;
@@ -38,7 +31,7 @@ export const EventBoard: React.FC<EventBoardProps> = ({ selectedDate }) => {
             }
             return a.title.localeCompare(b.title);
         });
-    }, [events, dateStr, sortOrder]);
+    }, [postponedEvents, sortOrder]);
 
     const getMetaLabel = (event: CalendarEvent) => {
         const timeLabel = event.startTime && event.startTime.trim() !== '' ? event.startTime : '--:--';
@@ -56,13 +49,13 @@ export const EventBoard: React.FC<EventBoardProps> = ({ selectedDate }) => {
         <div className="w-full board-panel p-4 rounded-2xl">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
                 <div>
-                    <div className="text-[11px] font-mono text-stone-500 tracking-[0.25em] uppercase">Day Events Administration</div>
-                    <div className="text-xl text-stone-800 tracking-[0.2em]">{dateStr}</div>
+                    <div className="text-[11px] font-mono text-stone-500 tracking-[0.25em] uppercase">Events Administration</div>
+                    <div className="text-xl text-stone-800 tracking-[0.2em]">Postponed Events</div>
                 </div>
                 <div className="flex items-center gap-3 text-[10px] font-mono text-stone-500 uppercase">
-                    <label className="tracking-[0.2em]" htmlFor="event-order">Order</label>
+                    <label className="tracking-[0.2em]" htmlFor="postponed-event-order">Order</label>
                     <select
-                        id="event-order"
+                        id="postponed-event-order"
                         value={sortOrder}
                         onChange={(e) => setSortOrder(e.target.value as 'time' | 'priority')}
                         className="bg-white border border-orange-200 text-[11px] text-stone-700 px-2 py-1 focus:outline-none focus:border-orange-400 rounded-lg"
@@ -105,7 +98,7 @@ export const EventBoard: React.FC<EventBoardProps> = ({ selectedDate }) => {
                                                 <Edit3 className="w-3 h-3" /> Edit
                                             </button>
                                             <button
-                                                onClick={() => deleteEvent(event.id)}
+                                                onClick={() => deletePostponedEvent(event.id)}
                                                 className="text-red-500 hover:text-red-600 flex items-center gap-1 text-[11px]"
                                             >
                                                 <Trash2 className="w-3 h-3" /> Delete
@@ -186,19 +179,19 @@ export const EventBoard: React.FC<EventBoardProps> = ({ selectedDate }) => {
                             onClick={async () => {
                                 if (!draft.title) return;
                                 if (editingId) {
-                                    await editEvent({
+                                    await editPostponedEvent({
                                         id: editingId,
                                         title: draft.title,
-                                        date: dateStr,
+                                        date: editingEvent?.date || '',
                                         startTime: draft.time,
                                         priority: parsePriority(draft.priority),
                                         link: draft.link,
                                         note: draft.note,
                                         originDates: editingEvent?.originDates || null,
-                                        wasPostponed: editingEvent?.wasPostponed || null
+                                        wasPostponed: null
                                     } as CalendarEvent);
                                 } else {
-                                    await addEvent(selectedDate, { ...draft, priority: parsePriority(draft.priority) });
+                                    await addPostponedEvent({ ...draft, priority: parsePriority(draft.priority) });
                                 }
                                 setEditingId(null);
                                 setEditingEvent(null);

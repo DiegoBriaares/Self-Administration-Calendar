@@ -1,0 +1,1 @@
+Makes postponed events day-agnostic by treating them as a raw list, removing date-based selectors and supporting date-less storage for deferred items.

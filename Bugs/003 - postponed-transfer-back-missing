@@ -1,0 +1,1 @@
+Postponed-to-calendar transfers failed when bulk calendar inserts were writing empty dates, preventing moved/copied items from appearing on the calendar.

@@ -1,26 +1,20 @@
 import React, { useMemo, useState } from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
-import { formatDate } from '../../utils/dateUtils';
 import { Clock, History } from 'lucide-react';
 
-interface DayEventsInformationProps {
-    activeDate: Date;
-}
-
-export const DayEventsInformation: React.FC<DayEventsInformationProps> = ({ activeDate }) => {
-    const { events } = useCalendarStore();
+export const PostponedEventsInformation: React.FC = () => {
+    const { postponedEvents } = useCalendarStore();
     const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
-    const dateStr = formatDate(activeDate);
     const dayEvents = useMemo(() => {
-        const list = events[dateStr] || [];
+        const list = postponedEvents || [];
         return [...list].sort((a, b) => {
             const tA = a.startTime || '';
             const tB = b.startTime || '';
             if (tA !== tB) return tA.localeCompare(tB);
             return a.title.localeCompare(b.title);
         });
-    }, [events, dateStr]);
+    }, [postponedEvents]);
 
     const toggleExpanded = (id: string) => {
         setExpandedIds((prev) => (
@@ -32,8 +26,8 @@ export const DayEventsInformation: React.FC<DayEventsInformationProps> = ({ acti
         <div className="w-full board-panel p-4 rounded-2xl mt-6">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
                 <div>
-                    <div className="text-[10px] font-mono text-stone-500 tracking-[0.25em] uppercase">Day Events Information</div>
-                    <div className="text-xl text-stone-800 tracking-[0.2em]">{dateStr}</div>
+                    <div className="text-[10px] font-mono text-stone-500 tracking-[0.25em] uppercase">Events Information</div>
+                    <div className="text-xl text-stone-800 tracking-[0.2em]">Postponed Events</div>
                 </div>
             </div>
 
@@ -46,7 +40,6 @@ export const DayEventsInformation: React.FC<DayEventsInformationProps> = ({ acti
                         const originDates = event.originDates && event.originDates.length > 0
                             ? event.originDates
                             : [];
-                        const wasPostponed = event.wasPostponed;
                         return (
                             <div key={event.id} className="board-card flex flex-col gap-2">
                                 <div className="flex items-center justify-between">
@@ -67,11 +60,6 @@ export const DayEventsInformation: React.FC<DayEventsInformationProps> = ({ acti
                                 </div>
                                 {isExpanded && (
                                     <div className="text-[11px] text-stone-500 font-mono">
-                                        {wasPostponed && (
-                                            <div className="mb-2 text-[10px] uppercase tracking-[0.2em] text-amber-600">
-                                                Previously Postponed
-                                            </div>
-                                        )}
                                         {originDates.length === 0 ? (
                                             <span>Original entry.</span>
                                         ) : (
