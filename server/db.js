@@ -52,15 +52,15 @@ const createStatementWrapper = (stmt) => {
 
 const createDatabase = (dbPath, onOpen) => {
     let dbInstance;
+    let wrapper;
     try {
         dbInstance = new BetterSqlite3(dbPath);
-        onOpen?.(null);
     } catch (err) {
-        onOpen?.(err);
+        onOpen?.(err, undefined);
         throw err;
     }
 
-    return {
+    wrapper = {
         run: (sql, ...args) => {
             const { params: normalized, cb: callback } = normalizeArgs(args);
             try {
@@ -107,6 +107,11 @@ const createDatabase = (dbPath, onOpen) => {
             }
         }
     };
+
+    if (onOpen) {
+        setImmediate(() => onOpen(null, wrapper));
+    }
+    return wrapper;
 };
 
 module.exports = { createDatabase };

@@ -20,21 +20,6 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // Database Setup
-const dbPath = path.resolve(__dirname, 'calendar.db');
-const db = createDatabase(dbPath, (err) => {
-    if (err) {
-        console.error('Error opening database:', err.message);
-    } else {
-        console.log('Connected to the SQLite database.');
-        // Enable WAL mode for concurrency
-        db.run('PRAGMA journal_mode = WAL;', (err) => {
-            if (err) console.error('Failed to enable WAL mode:', err);
-            else console.log('WAL mode enabled.');
-        });
-        initDbOnce();
-    }
-});
-
 let hasInitializedDb = false;
 function initDbOnce(onReady) {
     if (hasInitializedDb) {
@@ -44,6 +29,21 @@ function initDbOnce(onReady) {
     hasInitializedDb = true;
     initDb(onReady);
 }
+
+const dbPath = path.resolve(__dirname, 'calendar.db');
+const db = createDatabase(dbPath, (err, database) => {
+    if (err) {
+        console.error('Error opening database:', err.message);
+    } else {
+        console.log('Connected to the SQLite database.');
+        // Enable WAL mode for concurrency
+        database.run('PRAGMA journal_mode = WAL;', (err) => {
+            if (err) console.error('Failed to enable WAL mode:', err);
+            else console.log('WAL mode enabled.');
+        });
+        initDbOnce();
+    }
+});
 
 function initDb(onReady) {
     db.serialize(() => {
