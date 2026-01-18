@@ -44,7 +44,7 @@ const ensureEventNotesSchema = (db, onDone = () => {}, logger = console) => {
             const roleSelect = hasRoleId
                 ? 'role_id'
                 : hasOptionId
-                    ? 'option_id'
+                    ? "COALESCE(option_id, 'legacy')"
                     : "'legacy' AS role_id";
 
             db.serialize(() => {
