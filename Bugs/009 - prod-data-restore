@@ -1,0 +1,1 @@
+Production data must be restorable from snapshots without losing recent records; snapshot-based restores should reliably recover the calendar.db and related WAL files.
