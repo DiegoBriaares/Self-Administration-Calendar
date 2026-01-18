@@ -1,0 +1,3 @@
+- Archived new prompt groups for PR comment resolution, DB migration stability, and tests folder setup.
+- Added summaries for option_id migration and better-sqlite3 init safety.
+- Added Tests/Bugs and Tests/Enhancements folders for test documentation.

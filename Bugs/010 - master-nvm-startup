@@ -1,0 +1,1 @@
+The master startup script must correctly initialize nvm and Node 20 in AppleScript-driven Terminal tabs to avoid native module ABI errors.
