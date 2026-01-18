@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
+const { isForbiddenDbPath, resolveRealPath } = require('./delete_all_events_guard.cjs');
 
 let sqlite3;
 try {
@@ -20,10 +21,10 @@ const yesFlag = args.includes('--yes');
 
 const defaultDbPath = path.resolve(__dirname, '../server/calendar.db');
 const dbPath = dbArg ? dbArg.split('=')[1] : defaultDbPath;
-const resolvedDbPath = path.resolve(dbPath);
+const resolvedDbPath = resolveRealPath(dbPath);
 const forbiddenRoot = path.resolve(__dirname, '../../Calendario/cal-ap');
 
-if (resolvedDbPath.startsWith(forbiddenRoot + path.sep)) {
+if (isForbiddenDbPath(resolvedDbPath, forbiddenRoot)) {
     console.error(`Error: Refusing to delete data in ${forbiddenRoot}`);
     console.error('This script is restricted to the dev calendar-app database only.');
     process.exit(1);

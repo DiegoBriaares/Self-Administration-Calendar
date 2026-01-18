@@ -131,7 +131,8 @@ export const RangeEventInput: React.FC = () => {
                 };
             })
         ));
-        await addEventsBulk(payload);
+        const wasSaved = await addEventsBulk(payload);
+        if (!wasSaved) return;
         clearSelection();
         setEventMap({});
         setSelectedCopyIds([]);

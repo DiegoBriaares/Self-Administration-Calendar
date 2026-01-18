@@ -7,6 +7,7 @@ const path = require('path');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { ensureEventNotesSchema } = require('./ensureEventNotesSchema');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -99,15 +100,7 @@ function initDb(onReady) {
             order_index INTEGER DEFAULT 0
         )`);
 
-        // Drop and recreate event_notes to fix PRIMARY KEY
-        db.run('DROP TABLE IF EXISTS event_notes');
-        db.run(`CREATE TABLE IF NOT EXISTS event_notes (
-            event_id TEXT NOT NULL,
-            role_id TEXT NOT NULL,
-            content TEXT,
-            updated_at INTEGER,
-            PRIMARY KEY (event_id, role_id)
-        )`);
+        ensureEventNotesSchema(db);
 
         // No default seed for user-specific options (users create their own)
     });

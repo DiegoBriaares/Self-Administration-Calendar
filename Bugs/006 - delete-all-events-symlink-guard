@@ -1,0 +1,1 @@
+The delete-all-events maintenance script must resolve symlinks before enforcing the forbidden-root guard to prevent accidental deletions of production data.

@@ -1,0 +1,2 @@
+- Added structured prompt archives for recent bug fixes and test coverage work.
+- Documented new bug/enhancement summaries for move/copy integrity, event_notes migration safety, symlink guard, and test coverage.

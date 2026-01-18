@@ -139,11 +139,13 @@ export const RangeBoard: React.FC = () => {
                     priority: event.priority ?? null,
                     link: event.link ?? null,
                     note: event.note ?? null,
-                    originDates: chain.length > 0 ? chain : null
+                    originDates: chain.length > 0 ? chain : null,
+                    wasPostponed: event.wasPostponed ? true : null
                 };
             })
         ));
-        await addEventsBulk(payload);
+        const wasSaved = await addEventsBulk(payload);
+        if (!wasSaved) return;
         setSelectedCopyIds([]);
     };
 
@@ -170,7 +172,8 @@ export const RangeBoard: React.FC = () => {
                 originDates: chain.length > 0 ? chain : null
             };
         });
-        await addPostponedEventsBulk(payload);
+        const wasSaved = await addPostponedEventsBulk(payload);
+        if (!wasSaved) return;
         if (transferMode === 'move') {
             for (const event of selectedEvents) {
                 await deleteEvent(event.id);

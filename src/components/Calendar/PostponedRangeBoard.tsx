@@ -73,7 +73,8 @@ export const PostponedRangeBoard: React.FC = () => {
                 wasPostponed: true
             };
         });
-        await addEventsBulk(payload);
+        const wasSaved = await addEventsBulk(payload);
+        if (!wasSaved) return;
         if (transferMode === 'move') {
             for (const event of selectedEvents) {
                 await deletePostponedEvent(event.id);
