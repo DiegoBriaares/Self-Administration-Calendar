@@ -1,0 +1,1 @@
+The server must initialize the database without TDZ crashes and run under a supported Node LTS version so better-sqlite3 native bindings load reliably.

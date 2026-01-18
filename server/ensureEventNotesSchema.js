@@ -30,6 +30,7 @@ const ensureEventNotesSchema = (db, onDone = () => {}, logger = console) => {
             const columnNames = new Set(columns.map((col) => col.name));
             const hasEventId = columnNames.has('event_id');
             const hasRoleId = columnNames.has('role_id');
+            const hasOptionId = columnNames.has('option_id');
             const hasCompositePk = columns.some((col) => col.name === 'event_id' && col.pk === 1)
                 && columns.some((col) => col.name === 'role_id' && col.pk === 2);
 
@@ -40,7 +41,11 @@ const ensureEventNotesSchema = (db, onDone = () => {}, logger = console) => {
 
             const contentSelect = columnNames.has('content') ? 'content' : "'' AS content";
             const updatedSelect = columnNames.has('updated_at') ? 'updated_at' : 'NULL AS updated_at';
-            const roleSelect = hasRoleId ? 'role_id' : "'legacy' AS role_id";
+            const roleSelect = hasRoleId
+                ? 'role_id'
+                : hasOptionId
+                    ? 'option_id'
+                    : "'legacy' AS role_id";
 
             db.serialize(() => {
                 db.run('ALTER TABLE event_notes RENAME TO event_notes_legacy');

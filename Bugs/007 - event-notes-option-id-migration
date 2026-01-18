@@ -1,0 +1,1 @@
+Legacy databases using event_notes.option_id must preserve those values during migration so role-specific notes are not collapsed to a single legacy role.
