@@ -3,14 +3,14 @@ const path = require('path');
 const readline = require('readline');
 const { isForbiddenDbPath, resolveRealPath } = require('./delete_all_events_guard.cjs');
 
-let sqlite3;
+let Database;
 try {
-    sqlite3 = require('sqlite3').verbose();
+    Database = require('better-sqlite3');
 } catch (e) {
     try {
-        sqlite3 = require(path.join(__dirname, '../server/node_modules/sqlite3')).verbose();
+        Database = require(path.join(__dirname, '../server/node_modules/better-sqlite3'));
     } catch (e2) {
-        console.error('Could not load sqlite3. Please ensure it is installed in server/node_modules.');
+        console.error('Could not load better-sqlite3. Please ensure it is installed in server/node_modules.');
         process.exit(1);
     }
 }
@@ -46,53 +46,34 @@ const confirm = () => {
     });
 };
 
-const db = new sqlite3.Database(resolvedDbPath, (err) => {
-    if (err) {
-        console.error('Error opening database:', err.message);
-        process.exit(1);
-    }
-});
+let db;
+try {
+    db = new Database(resolvedDbPath);
+} catch (err) {
+    console.error('Error opening database:', err.message);
+    process.exit(1);
+}
 
 const runDelete = () => {
-    db.serialize(() => {
-        db.get('SELECT COUNT(*) as count FROM events', (countErr, row) => {
-            if (countErr) {
-                console.error('Error counting events:', countErr.message);
-                db.close();
-                process.exit(1);
-            }
-            const totalEvents = row ? row.count : 0;
-            db.get('SELECT COUNT(*) as count FROM event_notes', (noteErr, noteRow) => {
-                if (noteErr) {
-                    console.error('Error counting event notes:', noteErr.message);
-                    db.close();
-                    process.exit(1);
-                }
-                const totalNotes = noteRow ? noteRow.count : 0;
-                console.log(`Found ${totalEvents} events and ${totalNotes} event notes.`);
+    try {
+        const totalEvents = db.prepare('SELECT COUNT(*) as count FROM events').get().count || 0;
+        const totalNotes = db.prepare('SELECT COUNT(*) as count FROM event_notes').get().count || 0;
+        console.log(`Found ${totalEvents} events and ${totalNotes} event notes.`);
 
-                db.run('DELETE FROM event_notes', (delNotesErr) => {
-                    if (delNotesErr) {
-                        console.error('Error deleting event notes:', delNotesErr.message);
-                        db.close();
-                        process.exit(1);
-                    }
-                    db.run('DELETE FROM events', function (delEventsErr) {
-                        if (delEventsErr) {
-                            console.error('Error deleting events:', delEventsErr.message);
-                            db.close();
-                            process.exit(1);
-                        }
-                        console.log(`✓ Deleted ${totalEvents} events and ${totalNotes} event notes.`);
-                        db.close((closeErr) => {
-                            if (closeErr) console.error('Error closing database:', closeErr.message);
-                            process.exit(0);
-                        });
-                    });
-                });
-            });
-        });
-    });
+        const deleteNotes = db.prepare('DELETE FROM event_notes');
+        const deleteEvents = db.prepare('DELETE FROM events');
+
+        deleteNotes.run();
+        deleteEvents.run();
+
+        console.log(`✓ Deleted ${totalEvents} events and ${totalNotes} event notes.`);
+        db.close();
+        process.exit(0);
+    } catch (err) {
+        console.error('Error deleting events:', err.message);
+        db.close();
+        process.exit(1);
+    }
 };
 
 confirm().then((ok) => {

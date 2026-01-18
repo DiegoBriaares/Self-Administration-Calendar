@@ -1,6 +1,6 @@
 const express = require('express');
 const fs = require('fs');
-const sqlite3 = require('sqlite3').verbose();
+const { createDatabase } = require('./db');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
@@ -21,7 +21,7 @@ app.use(bodyParser.json());
 
 // Database Setup
 const dbPath = path.resolve(__dirname, 'calendar.db');
-const db = new sqlite3.Database(dbPath, (err) => {
+const db = createDatabase(dbPath, (err) => {
     if (err) {
         console.error('Error opening database:', err.message);
     } else {
