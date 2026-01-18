@@ -13,11 +13,7 @@ async function verify() {
     // We'll rely on the existing admin login or create one directly in DB via direct DB access? 
     // Direct DB access is safer to ensure we have an admin.
 
-    // Actually, I can use the `sqlite3` driver to insert an admin user directly, then use it to test API.
-    const sqlite3 = require('sqlite3').verbose();
-    const path = require('path');
-    const dbPath = path.resolve(__dirname, '../../server/calendar.db'); // Adjust path relative to where I verify.
-    // Wait, I am running this from where? I will write it to /tmp or root and run it.
+    // If needed, use direct DB access with better-sqlite3 to seed a test admin user.
 
     // Let's just assume the user can test globally.
     // Or better, write a script that imports the server app? No, that's messy.

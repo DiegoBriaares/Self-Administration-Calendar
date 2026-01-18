@@ -121,11 +121,11 @@ interface CalendarState {
     viewOwnCalendar: () => Promise<void>;
     addEvent: (date: Date, entry: { title: string; time?: string; startTime?: string; link?: string; note?: string; priority?: number | string | null }) => Promise<void>;
     addEventsToRange: (entries: Array<{ title: string; time?: string; startTime?: string; link?: string; note?: string; priority?: number | string | null }>) => Promise<void>;
-    addEventsBulk: (entries: Array<{ title: string; date: string; startTime?: string | null; priority?: number | string | null; link?: string | null; note?: string | null; originDates?: string[] | null; wasPostponed?: boolean | null }>) => Promise<void>;
+    addEventsBulk: (entries: Array<{ title: string; date: string; startTime?: string | null; priority?: number | string | null; link?: string | null; note?: string | null; originDates?: string[] | null; wasPostponed?: boolean | null }>) => Promise<boolean>;
     deleteEvent: (id: string) => Promise<void>;
     editEvent: (event: CalendarEvent) => Promise<void>;
     addPostponedEvent: (entry: { title: string; time?: string; startTime?: string; link?: string; note?: string; priority?: number | string | null }) => Promise<void>;
-    addPostponedEventsBulk: (entries: Array<{ title: string; startTime?: string | null; priority?: number | string | null; link?: string | null; note?: string | null; originDates?: string[] | null }>) => Promise<void>;
+    addPostponedEventsBulk: (entries: Array<{ title: string; startTime?: string | null; priority?: number | string | null; link?: string | null; note?: string | null; originDates?: string[] | null }>) => Promise<boolean>;
     deletePostponedEvent: (id: string) => Promise<void>;
     editPostponedEvent: (event: CalendarEvent) => Promise<void>;
     setViewDate: (date: Date) => void;
@@ -585,8 +585,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
 
         addEventsBulk: async (entries) => {
             const { token, user, viewMode, fetchEvents } = get();
-            if (!token || !user || viewMode === 'friend') return;
-            if (!entries || entries.length === 0) return;
+            if (!token || !user || viewMode === 'friend') return false;
+            if (!entries || entries.length === 0) return false;
 
             const newEvents: CalendarEvent[] = entries
                 .filter((entry) => entry && entry.title && entry.date)
@@ -602,7 +602,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     wasPostponed: entry.wasPostponed ? true : null
                 }));
 
-            if (newEvents.length === 0) return;
+            if (newEvents.length === 0) return false;
 
             try {
                 const response = await fetch(`${API_URL}/events`, {
@@ -623,7 +623,12 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
 
                 if (response.status === 401 || response.status === 403) {
                     logoutAndReset();
-                    return;
+                    return false;
+                }
+
+                if (!response.ok) {
+                    console.error('Failed to save events:', response.statusText);
+                    return false;
                 }
 
                 set((state) => {
@@ -637,8 +642,10 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                 });
 
                 await fetchEvents();
+                return true;
             } catch (error) {
                 console.error('Failed to save events:', error);
+                return false;
             }
         },
 
@@ -759,8 +766,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
 
         addPostponedEventsBulk: async (entries) => {
             const { token, user, viewMode, fetchPostponedEvents } = get();
-            if (!token || !user || viewMode === 'friend') return;
-            if (!entries || entries.length === 0) return;
+            if (!token || !user || viewMode === 'friend') return false;
+            if (!entries || entries.length === 0) return false;
 
             const newEvents: CalendarEvent[] = entries
                 .filter((entry) => entry && entry.title)
@@ -776,7 +783,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     wasPostponed: null
                 }));
 
-            if (newEvents.length === 0) return;
+            if (newEvents.length === 0) return false;
 
             try {
                 const response = await fetch(`${API_URL}/postponed-events`, {
@@ -795,7 +802,12 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
 
                 if (response.status === 401 || response.status === 403) {
                     logoutAndReset();
-                    return;
+                    return false;
+                }
+
+                if (!response.ok) {
+                    console.error('Failed to save postponed events:', response.statusText);
+                    return false;
                 }
 
                 set((state) => ({
@@ -808,8 +820,10 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                 }));
 
                 await fetchPostponedEvents();
+                return true;
             } catch (error) {
                 console.error('Failed to save postponed events:', error);
+                return false;
             }
         },
 

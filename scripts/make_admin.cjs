@@ -1,14 +1,14 @@
 const fs = require('fs');
 const path = require('path');
 
-let sqlite3;
+let Database;
 try {
-    sqlite3 = require('sqlite3').verbose();
+    Database = require('better-sqlite3');
 } catch (e) {
     try {
-        sqlite3 = require(path.join(__dirname, '../server/node_modules/sqlite3')).verbose();
+        Database = require(path.join(__dirname, '../server/node_modules/better-sqlite3'));
     } catch (e2) {
-        console.error('Could not load sqlite3. Please ensure it is installed in server/node_modules.');
+        console.error('Could not load better-sqlite3. Please ensure it is installed in server/node_modules.');
         process.exit(1);
     }
 }
@@ -41,67 +41,41 @@ if (!fs.existsSync(dbPath)) {
 console.log(`Connecting to database: ${dbPath}`);
 console.log(`Promoting user '${username}' to admin...`);
 
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error('Error opening database:', err.message);
-        process.exit(1);
-    }
-});
+let db;
+try {
+    db = new Database(dbPath);
+} catch (err) {
+    console.error('Error opening database:', err.message);
+    process.exit(1);
+}
 
-// Check if user exists and promote to admin
-db.get('SELECT id, username, is_admin FROM users WHERE username = ?', [username], (err, user) => {
-    if (err) {
-        console.error('Error querying user:', err.message);
-        db.close((closeErr) => {
-            if (closeErr) console.error('Error closing database:', closeErr.message);
-            process.exit(1);
-        });
-        return;
-    }
-
+try {
+    const user = db.prepare('SELECT id, username, is_admin FROM users WHERE username = ?').get(username);
     if (!user) {
         console.error(`Error: User '${username}' not found in database`);
-        db.close((closeErr) => {
-            if (closeErr) console.error('Error closing database:', closeErr.message);
-            process.exit(1);
-        });
-        return;
+        db.close();
+        process.exit(1);
     }
 
     if (user.is_admin === 1) {
         console.log(`User '${username}' is already an admin.`);
-        db.close((closeErr) => {
-            if (closeErr) console.error('Error closing database:', closeErr.message);
-            process.exit(0);
-        });
-        return;
+        db.close();
+        process.exit(0);
     }
 
-    // Promote user to admin
-    db.run('UPDATE users SET is_admin = 1 WHERE username = ?', [username], function (updateErr) {
-        if (updateErr) {
-            console.error('Error promoting user to admin:', updateErr.message);
-            db.close((closeErr) => {
-                if (closeErr) console.error('Error closing database:', closeErr.message);
-                process.exit(1);
-            });
-            return;
-        }
+    const info = db.prepare('UPDATE users SET is_admin = 1 WHERE username = ?').run(username);
+    if (info.changes === 0) {
+        console.error(`Error: Failed to update user '${username}'`);
+        db.close();
+        process.exit(1);
+    }
 
-        if (this.changes === 0) {
-            console.error(`Error: Failed to update user '${username}'`);
-            db.close((closeErr) => {
-                if (closeErr) console.error('Error closing database:', closeErr.message);
-                process.exit(1);
-            });
-            return;
-        }
-
-        console.log(`✓ Successfully promoted '${username}' to admin!`);
-        console.log(`  User ID: ${user.id}`);
-        db.close((closeErr) => {
-            if (closeErr) console.error('Error closing database:', closeErr.message);
-            process.exit(0);
-        });
-    });
-});
+    console.log(`✓ Successfully promoted '${username}' to admin!`);
+    console.log(`  User ID: ${user.id}`);
+    db.close();
+    process.exit(0);
+} catch (err) {
+    console.error('Error promoting user to admin:', err.message);
+    db.close();
+    process.exit(1);
+}

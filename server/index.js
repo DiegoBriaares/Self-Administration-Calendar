@@ -1,12 +1,13 @@
 const express = require('express');
 const fs = require('fs');
-const sqlite3 = require('sqlite3').verbose();
+const { createDatabase } = require('./db');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { ensureEventNotesSchema } = require('./ensureEventNotesSchema');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -19,21 +20,6 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // Database Setup
-const dbPath = path.resolve(__dirname, 'calendar.db');
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error('Error opening database:', err.message);
-    } else {
-        console.log('Connected to the SQLite database.');
-        // Enable WAL mode for concurrency
-        db.run('PRAGMA journal_mode = WAL;', (err) => {
-            if (err) console.error('Failed to enable WAL mode:', err);
-            else console.log('WAL mode enabled.');
-        });
-        initDbOnce();
-    }
-});
-
 let hasInitializedDb = false;
 function initDbOnce(onReady) {
     if (hasInitializedDb) {
@@ -43,6 +29,21 @@ function initDbOnce(onReady) {
     hasInitializedDb = true;
     initDb(onReady);
 }
+
+const dbPath = path.resolve(__dirname, 'calendar.db');
+const db = createDatabase(dbPath, (err, database) => {
+    if (err) {
+        console.error('Error opening database:', err.message);
+    } else {
+        console.log('Connected to the SQLite database.');
+        // Enable WAL mode for concurrency
+        database.run('PRAGMA journal_mode = WAL;', (err) => {
+            if (err) console.error('Failed to enable WAL mode:', err);
+            else console.log('WAL mode enabled.');
+        });
+        initDbOnce();
+    }
+});
 
 function initDb(onReady) {
     db.serialize(() => {
@@ -99,15 +100,7 @@ function initDb(onReady) {
             order_index INTEGER DEFAULT 0
         )`);
 
-        // Drop and recreate event_notes to fix PRIMARY KEY
-        db.run('DROP TABLE IF EXISTS event_notes');
-        db.run(`CREATE TABLE IF NOT EXISTS event_notes (
-            event_id TEXT NOT NULL,
-            role_id TEXT NOT NULL,
-            content TEXT,
-            updated_at INTEGER,
-            PRIMARY KEY (event_id, role_id)
-        )`);
+        ensureEventNotesSchema(db);
 
         // No default seed for user-specific options (users create their own)
     });

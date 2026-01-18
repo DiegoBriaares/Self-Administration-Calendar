@@ -1,0 +1,1 @@
+Server startup should not drop the event_notes table; existing notes must be preserved with a safe migration when schema changes are needed.

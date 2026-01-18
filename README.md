@@ -118,7 +118,7 @@ calendar-app/
 ## 🛠️ Tech Stack
 
 - **Frontend:** React, Vite, Zustand, TailwindCSS
-- **Backend:** Node.js, Express, SQLite3
+- **Backend:** Node.js (LTS), Express, SQLite (better-sqlite3)
 - **Auth:** JWT (JSON Web Tokens)
 
 ---

@@ -1,0 +1,1 @@
+Add targeted tests to cover the recent move/copy safeguards, event_notes migration, and delete-all-events guard so regressions are caught early.

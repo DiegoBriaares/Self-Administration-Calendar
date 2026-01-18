@@ -2,14 +2,14 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-let sqlite3;
+let Database;
 try {
-    sqlite3 = require('sqlite3').verbose();
+    Database = require('better-sqlite3');
 } catch (e) {
     try {
-        sqlite3 = require(path.join(__dirname, '../server/node_modules/sqlite3')).verbose();
+        Database = require(path.join(__dirname, '../server/node_modules/better-sqlite3'));
     } catch (e2) {
-        console.error('Could not load sqlite3. Please ensure it is installed in server/node_modules.');
+        console.error('Could not load better-sqlite3. Please ensure it is installed in server/node_modules.');
         process.exit(1);
     }
 }
@@ -72,16 +72,11 @@ if (!fs.existsSync(path.dirname(dbPath))) {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 }
 
-const db = new sqlite3.Database(dbPath);
+const db = new Database(dbPath);
 
-// We need to run the schema creation. 
-// Since we can't easily import the server code without running it, we'll replicate the schema creation here
-// or use a simplified version for the seed.
-// Ideally, we should use the server's init logic, but for a script, direct SQL is safer/easier.
-
-db.serialize(() => {
+try {
     // Users
-    db.run(`CREATE TABLE IF NOT EXISTS users (
+    db.exec(`CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
@@ -91,7 +86,7 @@ db.serialize(() => {
     )`);
 
     // Events
-    db.run(`CREATE TABLE IF NOT EXISTS events (
+    db.exec(`CREATE TABLE IF NOT EXISTS events (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
       date TEXT NOT NULL,
@@ -100,17 +95,17 @@ db.serialize(() => {
       note TEXT,
       link TEXT
     )`);
-    db.run('CREATE INDEX IF NOT EXISTS idx_events_user_date ON events(user_id, date)');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_events_user_date ON events(user_id, date)');
 
     // Friendships
-    db.run(`CREATE TABLE IF NOT EXISTS friendships (
+    db.exec(`CREATE TABLE IF NOT EXISTS friendships (
       user_a TEXT NOT NULL,
       user_b TEXT NOT NULL,
       UNIQUE(user_a, user_b)
     )`);
 
     // App Config
-    db.run(`CREATE TABLE IF NOT EXISTS app_config (
+    db.exec(`CREATE TABLE IF NOT EXISTS app_config (
       key TEXT PRIMARY KEY,
       value TEXT
     )`);
@@ -125,7 +120,6 @@ db.serialize(() => {
     Object.entries(defaults).forEach(([key, value]) => {
         stmt.run(key, value);
     });
-    stmt.finalize();
 
     // Create Admin User
     // We need bcrypt. Since we are running this script from the project root (presumably), 
@@ -147,40 +141,25 @@ db.serialize(() => {
     const hashedPassword = bcrypt.hashSync(adminPass, 10);
     const id = crypto.randomUUID();
 
-    db.run('INSERT INTO users (id, username, password, is_admin) VALUES (?, ?, ?, 1)', [id, adminUser, hashedPassword], function (err) {
-        if (err) {
-            if (err.message.includes('UNIQUE constraint failed')) {
-                console.log('Admin user already exists, updating password and admin status...');
-                db.run('UPDATE users SET password = ?, is_admin = 1 WHERE username = ?', [hashedPassword, adminUser], (updateErr) => {
-                    if (updateErr) {
-                        console.error('Failed to update admin user:', updateErr.message);
-                        db.close((closeErr) => {
-                            if (closeErr) console.error('Error closing database:', closeErr.message);
-                            process.exit(1);
-                        });
-                        return;
-                    }
-                    console.log('Admin user updated successfully.');
-                    console.log('Production seed generation complete.');
-                    db.close((closeErr) => {
-                        if (closeErr) console.error('Error closing database:', closeErr.message);
-                        process.exit(0);
-                    });
-                });
-                return;
-            }
-            console.error('Failed to create admin user:', err.message);
-            db.close((closeErr) => {
-                if (closeErr) console.error('Error closing database:', closeErr.message);
-                process.exit(1);
-            });
-            return;
-        }
+    try {
+        db.prepare('INSERT INTO users (id, username, password, is_admin) VALUES (?, ?, ?, 1)')
+            .run(id, adminUser, hashedPassword);
         console.log('Admin user created successfully.');
-        console.log('Production seed generation complete.');
-        db.close((closeErr) => {
-            if (closeErr) console.error('Error closing database:', closeErr.message);
-            process.exit(0);
-        });
-    });
-});
+    } catch (err) {
+        if (err.message.includes('UNIQUE constraint failed')) {
+            console.log('Admin user already exists, updating password and admin status...');
+            db.prepare('UPDATE users SET password = ?, is_admin = 1 WHERE username = ?')
+                .run(hashedPassword, adminUser);
+            console.log('Admin user updated successfully.');
+        } else {
+            throw err;
+        }
+    }
+
+    console.log('Production seed generation complete.');
+} catch (err) {
+    console.error('Failed to generate production seed:', err.message);
+    process.exit(1);
+} finally {
+    db.close();
+}

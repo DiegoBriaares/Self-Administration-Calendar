@@ -1,0 +1,1 @@
+Move/copy flows for events should not lose data when bulk inserts fail, and copied events must preserve the wasPostponed flag so history remains accurate.

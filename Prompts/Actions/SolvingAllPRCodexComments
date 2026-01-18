@@ -1,0 +1,7 @@
+Go find and solve comments on all open or specified PRs authored by Codex for this repository.
+
+- Pull review comments from GitHub (PR review comments and conversation comments).
+- For each comment, verify whether it is still applicable to the current codebase.
+- If applicable, implement a fix; if not, document why it is obsolete.
+- Add or update tests for the fixes when reasonable.
+- Summarize which comments were resolved vs. skipped and why.
