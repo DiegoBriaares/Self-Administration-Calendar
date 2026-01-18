@@ -1,0 +1,1 @@
+Legacy event_notes tables could store NULL option_id values, causing migrations to fail and risk dropping notes; guard with a legacy fallback during migration.

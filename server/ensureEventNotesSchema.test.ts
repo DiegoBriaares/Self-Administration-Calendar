@@ -71,4 +71,22 @@ describe('ensureEventNotesSchema', () => {
         expect(rows[0].role_id).toBe('role-7');
         expect(rows[0].content).toBe('Note');
     });
+
+    it('falls back to legacy role when option_id is null', async () => {
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'calendar-event-notes-option-null-'));
+        const dbPath = path.join(tmpDir, 'calendar.db');
+        const db = createDatabase(dbPath, () => {});
+        dbsToClose.push(db);
+
+        run(db, 'CREATE TABLE event_notes (event_id TEXT PRIMARY KEY, option_id TEXT, content TEXT)');
+        run(db, 'INSERT INTO event_notes (event_id, option_id, content) VALUES (?, ?, ?)', ['event-3', null, 'No role']);
+
+        await new Promise<void>((resolve) => ensureEventNotesSchema(db, resolve));
+
+        const rows = all(db, 'SELECT * FROM event_notes');
+        expect(rows).toHaveLength(1);
+        expect(rows[0].event_id).toBe('event-3');
+        expect(rows[0].role_id).toBe('legacy');
+        expect(rows[0].content).toBe('No role');
+    });
 });

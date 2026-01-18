@@ -1,0 +1,2 @@
+- Guarded event_notes migrations against NULL option_id values and added regression coverage.
+- Archived the latest prompt grouping and workflow instructions for this fix.
