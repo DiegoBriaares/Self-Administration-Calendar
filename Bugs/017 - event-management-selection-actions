@@ -1,0 +1,1 @@
+Day and postponed event management panels could show empty lists, clear selections on refresh, or disable transfers because the source date and selected IDs were overwritten by stale state and the postponed transfer action was not wired to the store.

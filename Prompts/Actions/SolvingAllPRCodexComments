@@ -1,6 +1,7 @@
 Go find and solve comments on all open or specified PRs authored by Codex for this repository.
 
-- Pull review comments from GitHub (PR review comments and conversation comments).
+- Pull review comments from GitHub (PR review comments, review threads/inline comments, and conversation comments).
+- Ensure inline review feedback (e.g., Codex thread comments on specific files/lines) is included, not just top-level review summaries.
 - For each comment, verify whether it is still applicable to the current codebase.
 - If applicable, implement a fix; if not, document why it is obsolete.
 - Add or update tests for the fixes when reasonable.

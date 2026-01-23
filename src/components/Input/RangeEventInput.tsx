@@ -87,6 +87,12 @@ export const RangeEventInput: React.FC = () => {
 
     const allSelected = sourceEvents.length > 0 && selectedCopyIds.length === sourceEvents.length;
 
+    useEffect(() => {
+        if (selectedCopyIds.length === 0) return;
+        const validIds = new Set(sourceEvents.map((event) => event.id));
+        setSelectedCopyIds((prev) => prev.filter((id) => validIds.has(id)));
+    }, [sourceEvents, selectedCopyIds.length]);
+
     const toggleCopySelection = (id: string) => {
         setSelectedCopyIds((prev) => (
             prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]

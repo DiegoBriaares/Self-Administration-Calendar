@@ -30,10 +30,18 @@ if [[ "${DRY_RUN:-0}" == "1" ]]; then
 fi
 
 if [[ "${SKIP_INSTALL:-0}" != "1" ]]; then
-  echo "=== Installing frontend deps in production copy ==="
-  (cd "$PROD_DIR" && npm install)
-  echo "=== Installing server deps in production copy ==="
-  (cd "$PROD_DIR/server" && npm install)
+  if [[ -d "$PROD_DIR/node_modules" ]]; then
+    echo "Frontend deps already installed; skipping npm install."
+  else
+    echo "=== Installing frontend deps in production copy ==="
+    (cd "$PROD_DIR" && npm install)
+  fi
+  if [[ -d "$PROD_DIR/server/node_modules" ]]; then
+    echo "Server deps already installed; skipping npm install."
+  else
+    echo "=== Installing server deps in production copy ==="
+    (cd "$PROD_DIR/server" && npm install)
+  fi
 else
   echo "SKIP_INSTALL=1; skipping npm installs."
 fi

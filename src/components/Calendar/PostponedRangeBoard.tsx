@@ -7,7 +7,7 @@ interface PostponedRangeBoardProps {
 }
 
 export const PostponedRangeBoard: React.FC<PostponedRangeBoardProps> = ({ postponedView }) => {
-    const { postponedEvents, viewMode, addPostponedEventsBulk, deletePostponedEvent } = useCalendarStore();
+    const { postponedEvents, viewMode, addEventsBulk, addPostponedEventsBulk, deletePostponedEvent } = useCalendarStore();
     const [sortOrderByView, setSortOrderByView] = React.useState<Record<'week' | 'all', 'time' | 'priority'>>({
         week: 'time',
         all: 'time'
@@ -70,6 +70,15 @@ export const PostponedRangeBoard: React.FC<PostponedRangeBoardProps> = ({ postpo
             [activeView]: prev[activeView] || (activeView === 'week' ? 'all' : 'week')
         }));
     }, [activeView]);
+
+    React.useEffect(() => {
+        if (selectedIds.length === 0) return;
+        const validIds = new Set(sourceEvents.map((event) => event.id));
+        setSelectedIdsByView((prev) => ({
+            ...prev,
+            [activeView]: prev[activeView].filter((id) => validIds.has(id))
+        }));
+    }, [sourceEvents, selectedIds.length, activeView]);
 
     const toggleSelection = (id: string) => {
         setSelectedIdsByView((prev) => ({
