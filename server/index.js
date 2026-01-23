@@ -100,6 +100,16 @@ function initDb(onReady) {
             order_index INTEGER DEFAULT 0
         )`);
 
+        db.run(`CREATE TABLE IF NOT EXISTS subroles (
+            id TEXT PRIMARY KEY,
+            role_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            label TEXT NOT NULL,
+            color TEXT,
+            is_enabled INTEGER DEFAULT 1,
+            order_index INTEGER DEFAULT 0
+        )`);
+
         ensureEventNotesSchema(db);
 
         // No default seed for user-specific options (users create their own)
@@ -1491,6 +1501,81 @@ app.post('/roles', authenticateToken, (req, res) => {
         );
     });
 });
+
+// --- Subroles Routes ---
+
+// Get all subroles
+app.get('/subroles', authenticateToken, (req, res) => {
+    db.all('SELECT * FROM subroles WHERE user_id = ? ORDER BY role_id, order_index ASC, label ASC', [req.user.id], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: 'success', data: rows });
+    });
+});
+
+// Create subrole for a role
+app.post('/roles/:roleId/subroles', authenticateToken, (req, res) => {
+    const { roleId } = req.params;
+    const { label, color } = req.body;
+    if (!label) return res.status(400).json({ error: 'Label required' });
+    const id = crypto.randomUUID();
+
+    db.get('SELECT user_id FROM roles WHERE id = ?', [roleId], (err, row) => {
+        if (err) return res.status(500).json({ error: 'DB error' });
+        if (!row) return res.status(404).json({ error: 'Role not found' });
+        if (row.user_id !== req.user.id) return res.status(403).json({ error: 'Unauthorized' });
+
+        db.get('SELECT MAX(order_index) as maxOrder FROM subroles WHERE user_id = ? AND role_id = ?', [req.user.id, roleId], (orderErr, orderRow) => {
+            if (orderErr) return res.status(500).json({ error: orderErr.message });
+            const nextOrder = (orderRow && orderRow.maxOrder !== null) ? orderRow.maxOrder + 1 : 0;
+
+            db.run(
+                'INSERT INTO subroles (id, role_id, user_id, label, color, order_index) VALUES (?, ?, ?, ?, ?, ?)',
+                [id, roleId, req.user.id, label, color, nextOrder],
+                (insertErr) => {
+                    if (insertErr) return res.status(500).json({ error: insertErr.message });
+                    res.json({ message: 'success', data: { id, role_id: roleId, user_id: req.user.id, label, color, is_enabled: 1, order_index: nextOrder } });
+                }
+            );
+        });
+    });
+});
+
+// Update subrole
+app.put('/subroles/:id', authenticateToken, (req, res) => {
+    const { label, color, is_enabled } = req.body;
+    const { id } = req.params;
+
+    db.get('SELECT user_id FROM subroles WHERE id = ?', [id], (err, row) => {
+        if (err) return res.status(500).json({ error: 'DB error' });
+        if (!row) return res.status(404).json({ error: 'Subrole not found' });
+        if (row.user_id !== req.user.id) return res.status(403).json({ error: 'Unauthorized' });
+
+        db.run('UPDATE subroles SET label = ?, color = ?, is_enabled = ? WHERE id = ?',
+            [label, color, is_enabled, id],
+            (updateErr) => {
+                if (updateErr) return res.status(500).json({ error: updateErr.message });
+                res.json({ message: 'success' });
+            }
+        );
+    });
+});
+
+// Delete subrole
+app.delete('/subroles/:id', authenticateToken, (req, res) => {
+    const { id } = req.params;
+
+    db.get('SELECT user_id FROM subroles WHERE id = ?', [id], (err, row) => {
+        if (err) return res.status(500).json({ error: 'DB error' });
+        if (!row) return res.status(404).json({ error: 'Subrole not found' });
+        if (row.user_id !== req.user.id) return res.status(403).json({ error: 'Unauthorized' });
+
+        db.run('DELETE FROM subroles WHERE id = ?', [id], (deleteErr) => {
+            if (deleteErr) return res.status(500).json({ error: deleteErr.message });
+            res.json({ message: 'success' });
+        });
+    });
+});
+
 // --- Upload Routes ---
 const multer = require('multer');
 const uploadStorage = multer.diskStorage({
@@ -1587,9 +1672,12 @@ app.delete('/roles/:id', authenticateToken, (req, res) => {
         if (!row) return res.status(404).json({ error: 'Role not found' });
         if (row.user_id !== req.user.id) return res.status(403).json({ error: 'Unauthorized' });
 
-        db.run('DELETE FROM roles WHERE id = ?', [id], (err) => {
-            if (err) return res.status(500).json({ error: err.message });
-            res.json({ message: 'success' });
+        db.serialize(() => {
+            db.run('DELETE FROM subroles WHERE role_id = ? AND user_id = ?', [id, req.user.id]);
+            db.run('DELETE FROM roles WHERE id = ?', [id], (err) => {
+                if (err) return res.status(500).json({ error: err.message });
+                res.json({ message: 'success' });
+            });
         });
     });
 });

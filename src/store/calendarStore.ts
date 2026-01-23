@@ -32,6 +32,10 @@ export interface Role {
     order_index?: number;
 }
 
+export interface Subrole extends Role {
+    role_id: string;
+}
+
 export interface AppConfig {
     app_title?: string;
     app_subtitle?: string;
@@ -158,8 +162,11 @@ interface CalendarState {
 
     // Roles & Notes
     roles: Role[];
+    subroles: Subrole[];
     fetchRoles: () => Promise<void>;
+    fetchSubroles: () => Promise<void>;
     manageRoles: (action: 'create' | 'update' | 'delete', payload: { id?: string; label?: string; color?: string }) => Promise<void>;
+    manageSubroles: (action: 'create' | 'update' | 'delete', payload: { id?: string; roleId?: string; label?: string; color?: string }) => Promise<void>;
     reorderRoles: (orderedIds: string[]) => Promise<void>;
     eventNotes: Record<string, Record<string, string>>;
     fetchEventNotes: (eventId: string) => Promise<void>;
@@ -207,6 +214,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
             dailyFacts: {},
             dayBackgrounds: {},
             roles: [],
+            subroles: [],
             eventNotes: {},
             compareMode: false,
             compareEvents: {},
@@ -248,6 +256,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
         dailyFacts: {},
         dayBackgrounds: {},
         roles: [],
+        subroles: [],
         eventNotes: {},
         compareMode: false,
         compareEvents: {},
@@ -1170,6 +1179,25 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                 console.error('Failed to fetch roles', e);
             }
         },
+        fetchSubroles: async () => {
+            const { token } = get();
+            if (!token) return;
+            try {
+                const res = await fetch(`${API_URL}/subroles`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.status === 401 || res.status === 403) {
+                    logoutAndReset();
+                    return;
+                }
+                const data = await res.json();
+                if (data.message === 'success') {
+                    set({ subroles: data.data || [] });
+                }
+            } catch (e) {
+                console.error('Failed to fetch subroles', e);
+            }
+        },
         manageRoles: async (action, payload) => {
             const { token } = get();
             if (!token) return;
@@ -1199,8 +1227,42 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     });
                 }
                 await get().fetchRoles();
+                await get().fetchSubroles();
             } catch (e) {
                 console.error('Failed to manage roles', e);
+            }
+        },
+        manageSubroles: async (action, payload) => {
+            const { token } = get();
+            if (!token) return;
+            try {
+                if (action === 'create' && payload.roleId) {
+                    await fetch(`${API_URL}/roles/${payload.roleId}/subroles`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ label: payload.label, color: payload.color })
+                    });
+                } else if (action === 'update' && payload.id) {
+                    await fetch(`${API_URL}/subroles/${payload.id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ label: payload.label, color: payload.color, is_enabled: 1 })
+                    });
+                } else if (action === 'delete' && payload.id) {
+                    await fetch(`${API_URL}/subroles/${payload.id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                }
+                await get().fetchSubroles();
+            } catch (e) {
+                console.error('Failed to manage subroles', e);
             }
         },
         reorderRoles: async (orderedIds) => {
@@ -1347,6 +1409,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                 get().fetchUsers(),
                 get().fetchProfile(),
                 get().fetchRoles(),
+                get().fetchSubroles(),
                 get().fetchAppConfig()
             ]);
         },

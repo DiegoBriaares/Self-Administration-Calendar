@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { useCalendarStore, type Role } from '../../store/calendarStore';
+import { useCalendarStore, type Role, type Subrole } from '../../store/calendarStore';
 import { formatFullDate } from '../../utils/dateUtils';
 import { X, Clock, StickyNote, Link as LinkIcon, Settings } from 'lucide-react';
 import type { CalendarEvent } from '../../store/calendarStore';
 import { RolesModal } from './RolesModal';
+import { SubrolesModal } from './SubrolesModal';
 import { NoteEnvironment } from './NoteEnvironment';
 
 interface DayModalProps {
@@ -15,13 +16,15 @@ interface DayModalProps {
 }
 
 export const DayModal: React.FC<DayModalProps> = ({ date, events, onClose, onConfigure }) => {
-    const { viewMode } = useCalendarStore();
+    const { viewMode, subroles, fetchSubroles } = useCalendarStore();
     const [sortOrder, setSortOrder] = useState<'time' | 'priority'>('time');
 
     // State for Note/Roles Flow
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
     const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+    const [selectedSubrole, setSelectedSubrole] = useState<Subrole | null>(null);
     const [showRolesModal, setShowRolesModal] = useState(false);
+    const [showSubrolesModal, setShowSubrolesModal] = useState(false);
     const [showNoteEnv, setShowNoteEnv] = useState(false);
 
     const dayEvents = useMemo(() => {
@@ -59,9 +62,25 @@ export const DayModal: React.FC<DayModalProps> = ({ date, events, onClose, onCon
         setShowRolesModal(true);
     };
 
-    const handleRoleSelect = (role: Role) => {
+    const handleRoleSelect = async (role: Role) => {
         setSelectedRole(role);
         setShowRolesModal(false);
+        let roleSubroles = subroles.filter(sub => sub.role_id === role.id);
+        if (roleSubroles.length === 0) {
+            await fetchSubroles();
+            roleSubroles = useCalendarStore.getState().subroles.filter(sub => sub.role_id === role.id);
+        }
+        if (roleSubroles.length > 0) {
+            setShowSubrolesModal(true);
+            return;
+        }
+        setSelectedSubrole(null);
+        setShowNoteEnv(true);
+    };
+
+    const handleSubroleSelect = (subrole: Subrole) => {
+        setSelectedSubrole(subrole);
+        setShowSubrolesModal(false);
         setShowNoteEnv(true);
     };
 
@@ -153,12 +172,24 @@ export const DayModal: React.FC<DayModalProps> = ({ date, events, onClose, onCon
                 onSelectRole={handleRoleSelect}
             />
 
-            {selectedEvent && selectedRole && (
+            <SubrolesModal
+                isOpen={showSubrolesModal}
+                role={selectedRole}
+                subroles={subroles.filter(sub => sub.role_id === selectedRole?.id)}
+                onClose={() => setShowSubrolesModal(false)}
+                onBack={() => {
+                    setShowSubrolesModal(false);
+                    setShowRolesModal(true);
+                }}
+                onSelectSubrole={handleSubroleSelect}
+            />
+
+            {selectedEvent && (selectedSubrole || selectedRole) && (
                 <NoteEnvironment
                     isOpen={showNoteEnv}
                     onClose={() => setShowNoteEnv(false)}
                     event={selectedEvent}
-                    role={selectedRole}
+                    role={selectedSubrole || selectedRole}
                 />
             )}
         </>
