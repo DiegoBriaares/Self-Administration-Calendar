@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
 import { formatDate } from '../../utils/dateUtils';
 import { Clock, History } from 'lucide-react';
@@ -12,6 +12,19 @@ export const DayEventsInformation: React.FC<DayEventsInformationProps> = ({ acti
     const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
     const dateStr = formatDate(activeDate);
+    const expandedByDateRef = useRef<Record<string, string[]>>({});
+
+    useEffect(() => {
+        if (expandedByDateRef.current[dateStr]) {
+            setExpandedIds(expandedByDateRef.current[dateStr]);
+        } else {
+            setExpandedIds([]);
+        }
+    }, [dateStr]);
+
+    useEffect(() => {
+        expandedByDateRef.current[dateStr] = expandedIds;
+    }, [dateStr, expandedIds]);
     const dayEvents = useMemo(() => {
         const list = events[dateStr] || [];
         return [...list].sort((a, b) => {

@@ -2,16 +2,42 @@ import React, { useMemo, useState } from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
 import { CalendarRange } from 'lucide-react';
 
-export const PostponedRangeBoard: React.FC = () => {
-    const { postponedEvents, viewMode, addEventsBulk, deletePostponedEvent } = useCalendarStore();
-    const [sortOrder, setSortOrder] = React.useState<'time' | 'priority'>('time');
-    const [selectedIds, setSelectedIds] = useState<string[]>([]);
-    const [targetDate, setTargetDate] = useState('');
-    const [transferMode, setTransferMode] = useState<'copy' | 'move'>('copy');
+interface PostponedRangeBoardProps {
+    postponedView?: 'week' | 'all';
+}
+
+export const PostponedRangeBoard: React.FC<PostponedRangeBoardProps> = ({ postponedView }) => {
+    const { postponedEvents, viewMode, addPostponedEventsBulk, deletePostponedEvent } = useCalendarStore();
+    const [sortOrderByView, setSortOrderByView] = React.useState<Record<'week' | 'all', 'time' | 'priority'>>({
+        week: 'time',
+        all: 'time'
+    });
+    const [selectedIdsByView, setSelectedIdsByView] = useState<Record<'week' | 'all', string[]>>({
+        week: [],
+        all: []
+    });
+    const [targetDateByView, setTargetDateByView] = useState<Record<'week' | 'all', string>>({
+        week: '',
+        all: ''
+    });
+    const [transferModeByView, setTransferModeByView] = useState<Record<'week' | 'all', 'copy' | 'move'>>({
+        week: 'copy',
+        all: 'copy'
+    });
+    const [targetPostponedViewByView, setTargetPostponedViewByView] = useState<Record<'week' | 'all', 'week' | 'all'>>({
+        week: 'all',
+        all: 'week'
+    });
+    const activeView = postponedView ?? 'all';
+    const sortOrder = sortOrderByView[activeView];
+    const selectedIds = selectedIdsByView[activeView];
+    const targetDate = targetDateByView[activeView];
+    const transferMode = transferModeByView[activeView];
+    const targetPostponedView = targetPostponedViewByView[activeView];
 
     const isReadOnly = viewMode === 'friend';
     const sourceEvents = useMemo(() => {
-        const list = postponedEvents || [];
+        const list = (postponedEvents || []).filter((event) => (event.postponedView ?? 'all') === activeView);
         return [...list].sort((a, b) => {
             const priorityValue = (value?: number | null) => {
                 if (value === null || value === undefined) return Number.MAX_SAFE_INTEGER;
@@ -32,20 +58,34 @@ export const PostponedRangeBoard: React.FC = () => {
             }
             return a.title.localeCompare(b.title);
         });
-    }, [postponedEvents, sortOrder]);
+    }, [postponedEvents, sortOrder, activeView]);
 
     const allSelected = sourceEvents.length > 0 && selectedIds.length === sourceEvents.length;
     const canTransfer = !isReadOnly && selectedIds.length > 0 && !!targetDate;
+    const canPostponeTransfer = !isReadOnly && selectedIds.length > 0;
+
+    React.useEffect(() => {
+        setTargetPostponedViewByView((prev) => ({
+            ...prev,
+            [activeView]: prev[activeView] || (activeView === 'week' ? 'all' : 'week')
+        }));
+    }, [activeView]);
 
     const toggleSelection = (id: string) => {
-        setSelectedIds((prev) => (
-            prev.includes(id) ? prev.filter((entry) => entry !== id) : [...prev, id]
-        ));
+        setSelectedIdsByView((prev) => ({
+            ...prev,
+            [activeView]: prev[activeView].includes(id)
+                ? prev[activeView].filter((entry) => entry !== id)
+                : [...prev[activeView], id]
+        }));
     };
 
     const handleSelectAll = () => {
         if (sourceEvents.length === 0) return;
-        setSelectedIds(allSelected ? [] : sourceEvents.map((event) => event.id));
+        setSelectedIdsByView((prev) => ({
+            ...prev,
+            [activeView]: allSelected ? [] : sourceEvents.map((event) => event.id)
+        }));
     };
 
     const handleTransferEvents = async () => {
@@ -80,7 +120,30 @@ export const PostponedRangeBoard: React.FC = () => {
                 await deletePostponedEvent(event.id);
             }
         }
-        setSelectedIds([]);
+        setSelectedIdsByView((prev) => ({ ...prev, [activeView]: [] }));
+    };
+
+    const handlePostponeTransfer = async () => {
+        if (!canPostponeTransfer) return;
+        const selectedEvents = sourceEvents.filter((event) => selectedIds.includes(event.id));
+        if (selectedEvents.length === 0) return;
+        const payload = selectedEvents.map((event) => ({
+            title: event.title,
+            startTime: event.startTime ?? null,
+            priority: event.priority ?? null,
+            link: event.link ?? null,
+            note: event.note ?? null,
+            originDates: event.originDates && event.originDates.length > 0 ? event.originDates : null,
+            postponedView: targetPostponedView
+        }));
+        const wasSaved = await addPostponedEventsBulk(payload);
+        if (!wasSaved) return;
+        if (transferMode === 'move') {
+            for (const event of selectedEvents) {
+                await deletePostponedEvent(event.id);
+            }
+        }
+        setSelectedIdsByView((prev) => ({ ...prev, [activeView]: [] }));
     };
 
     return (
@@ -96,7 +159,10 @@ export const PostponedRangeBoard: React.FC = () => {
                         <select
                             id="postponed-order"
                             value={sortOrder}
-                            onChange={(e) => setSortOrder(e.target.value as 'time' | 'priority')}
+                            onChange={(e) => setSortOrderByView((prev) => ({
+                                ...prev,
+                                [activeView]: e.target.value as 'time' | 'priority'
+                            }))}
                             className="border border-orange-200 rounded-lg px-2 py-1 text-[11px] text-stone-600 bg-white"
                         >
                             <option value="time">Hour</option>
@@ -108,7 +174,10 @@ export const PostponedRangeBoard: React.FC = () => {
                         <select
                             id="postponed-transfer"
                             value={transferMode}
-                            onChange={(e) => setTransferMode(e.target.value as 'copy' | 'move')}
+                            onChange={(e) => setTransferModeByView((prev) => ({
+                                ...prev,
+                                [activeView]: e.target.value as 'copy' | 'move'
+                            }))}
                             className="border border-orange-200 rounded-lg px-2 py-1 text-[11px] text-stone-600 bg-white"
                         >
                             <option value="copy">Copy</option>
@@ -157,10 +226,29 @@ export const PostponedRangeBoard: React.FC = () => {
                         <input
                             type="date"
                             value={targetDate}
-                            onChange={(e) => setTargetDate(e.target.value)}
+                            onChange={(e) => setTargetDateByView((prev) => ({
+                                ...prev,
+                                [activeView]: e.target.value
+                            }))}
                             disabled={isReadOnly}
                             className="border border-orange-200 rounded-lg px-3 py-2 text-sm text-stone-600 bg-white disabled:opacity-60"
                         />
+                        <div className="flex items-center gap-2 text-[10px] font-mono text-stone-500 uppercase">
+                            <label htmlFor="postponed-target-view" className="tracking-[0.2em]">Postponed View</label>
+                            <select
+                                id="postponed-target-view"
+                            value={targetPostponedView}
+                            onChange={(e) => setTargetPostponedViewByView((prev) => ({
+                                ...prev,
+                                [activeView]: e.target.value as 'week' | 'all'
+                            }))}
+                                disabled={isReadOnly}
+                                className="border border-orange-200 rounded-lg px-2 py-1 text-[11px] text-stone-600 bg-white disabled:opacity-60"
+                            >
+                                <option value="week">This week events</option>
+                                <option value="all">All events</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <div className="mt-3 flex items-center justify-between flex-wrap gap-2">
@@ -182,6 +270,14 @@ export const PostponedRangeBoard: React.FC = () => {
                         className="px-4 py-2 bg-orange-400 text-white text-xs font-mono font-bold hover:bg-orange-500 transition-colors rounded-lg disabled:opacity-50"
                     >
                         {transferMode === 'move' ? 'Move Selected' : 'Copy Selected'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handlePostponeTransfer}
+                        disabled={!canPostponeTransfer}
+                        className="px-4 py-2 bg-stone-700 text-white text-xs font-mono font-bold hover:bg-stone-800 transition-colors rounded-lg disabled:opacity-50"
+                    >
+                        {transferMode === 'move' ? 'Move to Postponed' : 'Copy to Postponed'}
                     </button>
                 </div>
             </div>

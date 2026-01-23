@@ -22,6 +22,7 @@ export interface CalendarEvent {
     link?: string | null;
     originDates?: string[] | null;
     wasPostponed?: boolean | null;
+    postponedView?: 'week' | 'all' | null;
 }
 
 export interface Role {
@@ -57,18 +58,23 @@ export interface AdminEvent {
 }
 
 const parseEventResources = (resources: any) => {
-    if (!resources) return { originDates: null, wasPostponed: null };
+    if (!resources) return { originDates: null, wasPostponed: null, postponedView: null };
     try {
         const parsed = typeof resources === 'string' ? JSON.parse(resources) : resources;
         const origins = parsed?.originDates;
         const wasPostponed = parsed?.wasPostponed === true;
+        const postponedView = parsed?.postponedView === 'week'
+            ? 'week'
+            : parsed?.postponedView === 'all'
+                ? 'all'
+                : null;
         if (!Array.isArray(origins)) {
-            return { originDates: null, wasPostponed: wasPostponed ? true : null };
+            return { originDates: null, wasPostponed: wasPostponed ? true : null, postponedView };
         }
         const cleaned = origins.filter((item: any) => typeof item === 'string' && item.trim() !== '');
-        return { originDates: cleaned.length > 0 ? cleaned : null, wasPostponed: wasPostponed ? true : null };
+        return { originDates: cleaned.length > 0 ? cleaned : null, wasPostponed: wasPostponed ? true : null, postponedView };
     } catch {
-        return { originDates: null, wasPostponed: null };
+        return { originDates: null, wasPostponed: null, postponedView: null };
     }
 };
 
@@ -128,8 +134,8 @@ interface CalendarState {
     addEventsBulk: (entries: Array<{ title: string; date: string; startTime?: string | null; priority?: number | string | null; link?: string | null; note?: string | null; originDates?: string[] | null; wasPostponed?: boolean | null }>) => Promise<boolean>;
     deleteEvent: (id: string) => Promise<void>;
     editEvent: (event: CalendarEvent) => Promise<void>;
-    addPostponedEvent: (entry: { title: string; time?: string; startTime?: string; link?: string; note?: string; priority?: number | string | null }) => Promise<void>;
-    addPostponedEventsBulk: (entries: Array<{ title: string; startTime?: string | null; priority?: number | string | null; link?: string | null; note?: string | null; originDates?: string[] | null }>) => Promise<boolean>;
+    addPostponedEvent: (entry: { title: string; time?: string; startTime?: string; link?: string; note?: string; priority?: number | string | null; postponedView?: 'week' | 'all' }) => Promise<void>;
+    addPostponedEventsBulk: (entries: Array<{ title: string; startTime?: string | null; priority?: number | string | null; link?: string | null; note?: string | null; originDates?: string[] | null; postponedView?: 'week' | 'all' }>) => Promise<boolean>;
     deletePostponedEvent: (id: string) => Promise<void>;
     editPostponedEvent: (event: CalendarEvent) => Promise<void>;
     setViewDate: (date: Date) => void;
@@ -424,7 +430,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     const eventsList: CalendarEvent[] = [];
                     data.data.forEach((raw: any) => {
                         const timeVal = raw.startTime ?? raw.start_time ?? null;
-                        const { originDates, wasPostponed } = parseEventResources(raw.resources);
+                        const { originDates, wasPostponed, postponedView } = parseEventResources(raw.resources);
                         const event: CalendarEvent = {
                             id: raw.id,
                             title: raw.title,
@@ -434,7 +440,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                             note: raw.note || null,
                             link: raw.link || null,
                             originDates,
-                            wasPostponed
+                            wasPostponed,
+                            postponedView: postponedView ?? 'all'
                         };
                         eventsList.push(event);
                     });
@@ -789,7 +796,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     note: entry.note?.trim() ? entry.note.trim() : null,
                     link: entry.link?.trim() ? entry.link.trim() : null,
                     originDates: entry.originDates && entry.originDates.length > 0 ? entry.originDates : null,
-                    wasPostponed: null
+                    wasPostponed: null,
+                    postponedView: entry.postponedView ?? 'week'
                 }));
 
             if (newEvents.length === 0) return false;
@@ -804,7 +812,10 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                     body: JSON.stringify({
                         events: newEvents.map((event) => ({
                             ...event,
-                            resources: event.originDates ? { originDates: event.originDates } : null
+                            resources: {
+                                originDates: event.originDates || undefined,
+                                postponedView: event.postponedView || undefined
+                            }
                         }))
                     }),
                 });
@@ -850,7 +861,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                 note: entry.note?.trim() ? entry.note.trim() : null,
                 link: entry.link?.trim() ? entry.link.trim() : null,
                 originDates: null,
-                wasPostponed: null
+                wasPostponed: null,
+                postponedView: entry.postponedView ?? 'week'
             };
             try {
                 const res = await fetch(`${API_URL}/postponed-events`, {
@@ -859,7 +871,12 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ events: [{ ...newEvent, resources: null }] })
+                    body: JSON.stringify({
+                        events: [{
+                            ...newEvent,
+                            resources: { postponedView: newEvent.postponedView }
+                        }]
+                    })
                 });
                 if (res.status === 401 || res.status === 403) {
                     logoutAndReset();
@@ -919,7 +936,10 @@ export const useCalendarStore = create<CalendarState>((set, get) => {
                         priority: normalizePriority(event.priority),
                         note: event.note || null,
                         link: event.link || null,
-                        resources: event.originDates ? { originDates: event.originDates } : null
+                        resources: {
+                            originDates: event.originDates || undefined,
+                            postponedView: event.postponedView || undefined
+                        }
                     })
                 });
                 if (res.status === 401 || res.status === 403) {

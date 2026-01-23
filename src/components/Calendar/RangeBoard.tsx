@@ -1,10 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
 import { formatDate } from '../../utils/dateUtils';
 import { eachDayOfInterval } from 'date-fns';
 import { CalendarRange } from 'lucide-react';
 
-export const RangeBoard: React.FC = () => {
+interface RangeBoardProps {
+    activeDate: Date | null;
+}
+
+export const RangeBoard: React.FC<RangeBoardProps> = ({ activeDate }) => {
     const { selection, events, viewMode, addEventsBulk, editEvent, addPostponedEventsBulk, deleteEvent } = useCalendarStore();
     const hasSelection = selection.start && selection.end;
     const [sortOrder, setSortOrder] = React.useState<'time' | 'priority'>('time');
@@ -13,6 +17,17 @@ export const RangeBoard: React.FC = () => {
     const [targetDates, setTargetDates] = useState<string[]>([]);
     const [targetDateInput, setTargetDateInput] = useState('');
     const [transferMode, setTransferMode] = useState<'copy' | 'move'>('copy');
+    const [postponedView, setPostponedView] = useState<'week' | 'all'>('week');
+    const dateKey = activeDate ? formatDate(activeDate) : 'range-default';
+    const stateByDateRef = useRef<Record<string, {
+        sortOrder: 'time' | 'priority';
+        copySourceDate: string;
+        selectedCopyIds: string[];
+        targetDates: string[];
+        targetDateInput: string;
+        transferMode: 'copy' | 'move';
+        postponedView: 'week' | 'all';
+    }>>({});
 
     const days = useMemo(() => {
         if (!selection.start || !selection.end) return [];
@@ -29,7 +44,32 @@ export const RangeBoard: React.FC = () => {
         const defaultTarget = days[1] ? formatDate(days[1]) : '';
         setTargetDates(defaultTarget ? [defaultTarget] : []);
         setTargetDateInput('');
+        setPostponedView('week');
     }, [days]);
+
+    useEffect(() => {
+        const saved = stateByDateRef.current[dateKey];
+        if (!saved) return;
+        setSortOrder(saved.sortOrder);
+        setCopySourceDate(saved.copySourceDate);
+        setSelectedCopyIds(saved.selectedCopyIds);
+        setTargetDates(saved.targetDates);
+        setTargetDateInput(saved.targetDateInput);
+        setTransferMode(saved.transferMode);
+        setPostponedView(saved.postponedView);
+    }, [dateKey]);
+
+    useEffect(() => {
+        stateByDateRef.current[dateKey] = {
+            sortOrder,
+            copySourceDate,
+            selectedCopyIds,
+            targetDates,
+            targetDateInput,
+            transferMode,
+            postponedView
+        };
+    }, [dateKey, sortOrder, copySourceDate, selectedCopyIds, targetDates, targetDateInput, transferMode, postponedView]);
 
     useEffect(() => {
         if (days.length === 0 || !copySourceDate) return;
@@ -169,7 +209,8 @@ export const RangeBoard: React.FC = () => {
                 priority: event.priority ?? null,
                 link: event.link ?? null,
                 note: event.note ?? null,
-                originDates: chain.length > 0 ? chain : null
+                originDates: chain.length > 0 ? chain : null,
+                postponedView
             };
         });
         const wasSaved = await addPostponedEventsBulk(payload);
@@ -294,6 +335,19 @@ export const RangeBoard: React.FC = () => {
                             disabled={isReadOnly}
                             className="border border-orange-200 rounded-lg px-3 py-2 text-sm text-stone-600 bg-white disabled:opacity-60"
                         />
+                        <div className="flex items-center gap-2 text-[10px] font-mono text-stone-500 uppercase">
+                            <label htmlFor="postponed-view" className="tracking-[0.2em]">Postponed View</label>
+                            <select
+                                id="postponed-view"
+                                value={postponedView}
+                                onChange={(e) => setPostponedView(e.target.value as 'week' | 'all')}
+                                disabled={isReadOnly}
+                                className="border border-orange-200 rounded-lg px-2 py-1 text-[11px] text-stone-600 bg-white disabled:opacity-60"
+                            >
+                                <option value="week">This week events</option>
+                                <option value="all">All events</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <div className="mt-3 flex items-center justify-between flex-wrap gap-2">

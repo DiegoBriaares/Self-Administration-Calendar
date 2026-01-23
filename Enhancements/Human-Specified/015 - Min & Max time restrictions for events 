@@ -1,0 +1,8 @@
+Idea:
+
+Additional input fields for events to capture min time required and max time allowed for an working on event.
+
+
+Requirements:
+
+If not min/max time is entered, display -- as in priorty/time data when no data is entered.

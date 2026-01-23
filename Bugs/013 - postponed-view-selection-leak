@@ -1,0 +1,1 @@
+Fixes selection and input state leaking between postponed views by scoping management state per view.
