@@ -9,13 +9,14 @@ interface RolesModalProps {
 }
 
 export const RolesModal: React.FC<RolesModalProps> = ({ isOpen, onClose, onSelectRole }) => {
-    const { roles, fetchRoles } = useCalendarStore();
+    const { roles, fetchRoles, fetchSubroles } = useCalendarStore();
 
     useEffect(() => {
         if (isOpen) {
             fetchRoles();
+            fetchSubroles();
         }
-    }, [isOpen, fetchRoles]);
+    }, [isOpen, fetchRoles, fetchSubroles]);
 
     if (!isOpen) return null;
 

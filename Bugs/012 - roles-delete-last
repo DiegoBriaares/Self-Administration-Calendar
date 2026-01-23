@@ -1,0 +1,1 @@
+Fixes the inability to delete the last role by removing a pointer-event blocking overlay on the roles list.

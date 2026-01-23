@@ -1,19 +1,23 @@
 import React, { useEffect } from 'react';
 import { useCalendarStore } from '../../store/calendarStore';
-import { ArrowLeft, ChevronUp, ChevronDown, Shield, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronUp, ChevronDown, PlusSquare, Shield, Trash2 } from 'lucide-react';
 
 export const RolesPanel: React.FC = () => {
     const {
         roles,
+        subroles,
         fetchRoles,
+        fetchSubroles,
         manageRoles,
+        manageSubroles,
         reorderRoles,
         navigateToCalendar
     } = useCalendarStore();
 
     useEffect(() => {
         fetchRoles();
-    }, [fetchRoles]);
+        fetchSubroles();
+    }, [fetchRoles, fetchSubroles]);
 
     return (
         <div className="w-full max-w-[1600px] mx-auto px-4 sm:px-8 mb-8">
@@ -25,8 +29,8 @@ export const RolesPanel: React.FC = () => {
             </button>
 
             <div className="border border-orange-200 bg-white/80 backdrop-blur-xl p-6 relative overflow-hidden rounded-2xl shadow-xl shadow-orange-100/50">
-                <div className="absolute top-0 left-0 w-20 h-20 border-r border-b border-orange-200" />
-                <div className="absolute bottom-0 right-0 w-20 h-20 border-l border-t border-orange-200" />
+                <div className="absolute top-0 left-0 w-20 h-20 border-r border-b border-orange-200 pointer-events-none" />
+                <div className="absolute bottom-0 right-0 w-20 h-20 border-l border-t border-orange-200 pointer-events-none" />
 
                 <div className="flex items-start justify-between gap-8 relative z-10 flex-col lg:flex-row">
                     <div className="flex items-center gap-4">
@@ -67,61 +71,112 @@ export const RolesPanel: React.FC = () => {
                             <p className="p-4 text-sm text-stone-500 italic">No roles defined.</p>
                         ) : (
                             <ul className="divide-y divide-orange-100">
-                                {roles.map((opt, index) => (
-                                    <li key={opt.id} className="flex items-center justify-between p-3 hover:bg-orange-100 transition-colors">
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex flex-col gap-1">
-                                                <button
-                                                    disabled={index === 0}
-                                                    onClick={() => {
-                                                        const newOrder = [...roles];
-                                                        [newOrder[index], newOrder[index - 1]] = [newOrder[index - 1], newOrder[index]];
-                                                        reorderRoles(newOrder.map(o => o.id));
+                                {roles.map((opt, index) => {
+                                    const roleSubroles = subroles.filter(sub => sub.role_id === opt.id);
+                                    return (
+                                        <li key={opt.id} className="p-3 hover:bg-orange-100 transition-colors">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex flex-col gap-1">
+                                                    <button
+                                                        disabled={index === 0}
+                                                        onClick={() => {
+                                                            const newOrder = [...roles];
+                                                            [newOrder[index], newOrder[index - 1]] = [newOrder[index - 1], newOrder[index]];
+                                                            reorderRoles(newOrder.map(o => o.id));
+                                                        }}
+                                                        className="text-stone-300 hover:text-orange-500 disabled:opacity-0"
+                                                    >
+                                                        <ChevronUp className="w-3 h-3" />
+                                                    </button>
+                                                    <button
+                                                        disabled={index === roles.length - 1}
+                                                        onClick={() => {
+                                                            const newOrder = [...roles];
+                                                            [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+                                                            reorderRoles(newOrder.map(o => o.id));
+                                                        }}
+                                                        className="text-stone-300 hover:text-orange-500 disabled:opacity-0"
+                                                    >
+                                                        <ChevronDown className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                                <div
+                                                    className="w-3 h-3 rounded-full"
+                                                    style={{ backgroundColor: opt.color || '#ccc' }}
+                                                />
+                                                <span
+                                                    className="font-medium text-stone-700 cursor-pointer hover:underline decoration-orange-300 underline-offset-2"
+                                                    onClick={async () => {
+                                                        const newLabel = prompt('Rename role:', opt.label);
+                                                        if (newLabel && newLabel !== opt.label) {
+                                                            await manageRoles('update', { id: opt.id, label: newLabel });
+                                                        }
                                                     }}
-                                                    className="text-stone-300 hover:text-orange-500 disabled:opacity-0"
                                                 >
-                                                    <ChevronUp className="w-3 h-3" />
+                                                    {opt.label}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={async () => {
+                                                        const label = prompt(`New subrole for ${opt.label}:`);
+                                                        if (label) {
+                                                            await manageSubroles('create', { roleId: opt.id, label, color: opt.color || '#f97316' });
+                                                        }
+                                                    }}
+                                                    className="text-stone-400 hover:text-orange-500 transition-colors"
+                                                    title="Add subrole"
+                                                >
+                                                    <PlusSquare className="w-4 h-4" />
                                                 </button>
                                                 <button
-                                                    disabled={index === roles.length - 1}
                                                     onClick={() => {
-                                                        const newOrder = [...roles];
-                                                        [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
-                                                        reorderRoles(newOrder.map(o => o.id));
+                                                        if (confirm('Delete this role?')) {
+                                                            manageRoles('delete', { id: opt.id });
+                                                        }
                                                     }}
-                                                    className="text-stone-300 hover:text-orange-500 disabled:opacity-0"
+                                                    className="text-stone-400 hover:text-red-500 transition-colors"
                                                 >
-                                                    <ChevronDown className="w-3 h-3" />
+                                                    <Trash2 className="w-4 h-4" />
                                                 </button>
                                             </div>
-                                            <div
-                                                className="w-3 h-3 rounded-full"
-                                                style={{ backgroundColor: opt.color || '#ccc' }}
-                                            />
-                                            <span
-                                                className="font-medium text-stone-700 cursor-pointer hover:underline decoration-orange-300 underline-offset-2"
-                                                onClick={async () => {
-                                                    const newLabel = prompt('Rename role:', opt.label);
-                                                    if (newLabel && newLabel !== opt.label) {
-                                                        await manageRoles('update', { id: opt.id, label: newLabel });
-                                                    }
-                                                }}
-                                            >
-                                                {opt.label}
-                                            </span>
                                         </div>
-                                        <button
-                                            onClick={() => {
-                                                if (confirm('Delete this role?')) {
-                                                    manageRoles('delete', { id: opt.id });
-                                                }
-                                            }}
-                                            className="text-stone-400 hover:text-red-500 transition-colors"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        {roleSubroles.length > 0 && (
+                                            <ul className="mt-2 ml-10 space-y-1">
+                                                {roleSubroles.map((sub) => (
+                                                    <li key={sub.id} className="flex items-center justify-between rounded-md px-2 py-1 hover:bg-orange-50">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs text-stone-400">-&gt;</span>
+                                                            <span
+                                                                className="text-sm text-stone-600 cursor-pointer hover:underline decoration-orange-300 underline-offset-2"
+                                                                onClick={async () => {
+                                                                    const newLabel = prompt('Rename subrole:', sub.label);
+                                                                    if (newLabel && newLabel !== sub.label) {
+                                                                        await manageSubroles('update', { id: sub.id, label: newLabel });
+                                                                    }
+                                                                }}
+                                                            >
+                                                                {sub.label}
+                                                            </span>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => {
+                                                                if (confirm('Delete this subrole?')) {
+                                                                    manageSubroles('delete', { id: sub.id });
+                                                                }
+                                                            }}
+                                                            className="text-stone-300 hover:text-red-500 transition-colors"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
                                     </li>
-                                ))}
+                                    );
+                                })}
                             </ul>
                         )}
                     </div>
