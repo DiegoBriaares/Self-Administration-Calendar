@@ -1,0 +1,1 @@
+Deployment failed because the script always ran npm install; it now skips installs when node_modules already exists to avoid unnecessary failures.
