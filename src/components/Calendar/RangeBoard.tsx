@@ -41,15 +41,19 @@ export const RangeBoard: React.FC<RangeBoardProps> = ({ activeDate }) => {
         const dayKeys = days.map((day) => formatDate(day));
         const activeKey = activeDate ? formatDate(activeDate) : '';
         const defaultSource = activeKey && dayKeys.includes(activeKey) ? activeKey : dayKeys[0];
-        if (copySourceDate !== defaultSource) {
-            setCopySourceDate(defaultSource);
+        let didResetSource = false;
+        setCopySourceDate((current) => {
+            if (current && dayKeys.includes(current)) {
+                return current;
+            }
+            didResetSource = true;
+            return defaultSource;
+        });
+        if (didResetSource) {
             setSelectedCopyIds([]);
         }
-        const defaultTarget = dayKeys.find((date) => date !== defaultSource) || '';
-        setTargetDates(defaultTarget ? [defaultTarget] : []);
-        setTargetDateInput(defaultTarget);
         setPostponedView('week');
-    }, [days, activeDate, copySourceDate]);
+    }, [days, activeDate]);
 
     useEffect(() => {
         if (days.length === 0) return;
