@@ -1,0 +1,27 @@
+Idea:
+
+Postponed Events component - View Selector - Selection option for: This week | All.
+
+
+Requirements:
+
+Postponed events component page must display an option to select either "This Week Events" or "All Events".
+
+After selecting "This Week Events" or "All Events", the page is reloaded so that the Postponed Event Administration features loads a set of events. The set of events is relative to the selection i.e the Event Administration features have the same functionalities for any selection, only the displayed data is distinct. 
+
+Default selection is "This Week Events".
+
+Current existing events should be events relative to "All Events" i.e the existing events are displayed when the selection is "All Events". "This Week Events" should begin its existence with an empty set of events.
+
+
+Design:
+
+
+Prompt:
+Add a feature for the postponed events component. At the postponed events page, at the top-right    of the Event Administration subcomponent, add a view selector i.e a toggle between two views "This week events" and "All events" respectively. The default view is "This week events". A view is a collection of events relative to that view i.e set of displayed events in one view is different from the set of displayed events in the other, if and only if the set of events is distinct. The three features of the Event administration subcomponent should display the events relative to the selected view (i.e added to that view via creation in the event managment feature or copied/moved from a day in the calendar).
+
+In the calendar component, inside the day administration subcomponent, the copy/move to postponed events should now also include an option (similar to the one for selecting a day when moving/copying events to a distinct day) to select if the events is going to be moved/copied to This week events or to All events. 
+
+
+
+ 
