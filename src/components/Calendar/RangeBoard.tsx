@@ -38,18 +38,37 @@ export const RangeBoard: React.FC<RangeBoardProps> = ({ activeDate }) => {
 
     useEffect(() => {
         if (days.length === 0) return;
-        const defaultSource = formatDate(days[0]);
-        setCopySourceDate(defaultSource);
-        setSelectedCopyIds([]);
-        const defaultTarget = days[1] ? formatDate(days[1]) : '';
+        const dayKeys = days.map((day) => formatDate(day));
+        const activeKey = activeDate ? formatDate(activeDate) : '';
+        const defaultSource = activeKey && dayKeys.includes(activeKey) ? activeKey : dayKeys[0];
+        if (copySourceDate !== defaultSource) {
+            setCopySourceDate(defaultSource);
+            setSelectedCopyIds([]);
+        }
+        const defaultTarget = dayKeys.find((date) => date !== defaultSource) || '';
         setTargetDates(defaultTarget ? [defaultTarget] : []);
-        setTargetDateInput('');
+        setTargetDateInput(defaultTarget);
         setPostponedView('week');
-    }, [days]);
+    }, [days, activeDate, copySourceDate]);
+
+    useEffect(() => {
+        if (days.length === 0) return;
+        const dayKeys = days.map((day) => formatDate(day));
+        if (!copySourceDate || !dayKeys.includes(copySourceDate)) {
+            const activeKey = activeDate ? formatDate(activeDate) : '';
+            const nextSource = activeKey && dayKeys.includes(activeKey) ? activeKey : dayKeys[0];
+            setCopySourceDate(nextSource);
+            setSelectedCopyIds([]);
+        }
+    }, [days, activeDate, copySourceDate]);
 
     useEffect(() => {
         const saved = stateByDateRef.current[dateKey];
         if (!saved) return;
+        const dayKeys = days.map((day) => formatDate(day));
+        if (!saved.copySourceDate || !dayKeys.includes(saved.copySourceDate)) {
+            return;
+        }
         setSortOrder(saved.sortOrder);
         setCopySourceDate(saved.copySourceDate);
         setSelectedCopyIds(saved.selectedCopyIds);
@@ -57,7 +76,7 @@ export const RangeBoard: React.FC<RangeBoardProps> = ({ activeDate }) => {
         setTargetDateInput(saved.targetDateInput);
         setTransferMode(saved.transferMode);
         setPostponedView(saved.postponedView);
-    }, [dateKey]);
+    }, [dateKey, days]);
 
     useEffect(() => {
         stateByDateRef.current[dateKey] = {
@@ -92,6 +111,9 @@ export const RangeBoard: React.FC<RangeBoardProps> = ({ activeDate }) => {
         : '';
 
     const isReadOnly = viewMode === 'friend';
+    const effectiveTargetDates = targetDates.length > 0
+        ? targetDates
+        : (targetDateInput && targetDateInput !== copySourceDate ? [targetDateInput] : []);
     const sourceEvents = useMemo(() => {
         if (!copySourceDate) return [];
         const list = events[copySourceDate] || [];
@@ -117,8 +139,14 @@ export const RangeBoard: React.FC<RangeBoardProps> = ({ activeDate }) => {
         });
     }, [events, copySourceDate, sortOrder]);
 
+    useEffect(() => {
+        if (selectedCopyIds.length === 0) return;
+        const validIds = new Set(sourceEvents.map((event) => event.id));
+        setSelectedCopyIds((prev) => prev.filter((id) => validIds.has(id)));
+    }, [sourceEvents, selectedCopyIds.length]);
+
     const allSelected = sourceEvents.length > 0 && selectedCopyIds.length === sourceEvents.length;
-    const canTransfer = !isReadOnly && selectedCopyIds.length > 0 && targetDates.length > 0;
+    const canTransfer = !isReadOnly && selectedCopyIds.length > 0 && effectiveTargetDates.length > 0;
     const canPostpone = !isReadOnly && selectedCopyIds.length > 0;
 
     const toggleCopySelection = (id: string) => {
@@ -136,9 +164,9 @@ export const RangeBoard: React.FC<RangeBoardProps> = ({ activeDate }) => {
         if (!canTransfer || !copySourceDate) return;
         const selectedEvents = sourceEvents.filter((event) => selectedCopyIds.includes(event.id));
         if (selectedEvents.length === 0) return;
-        if (targetDates.length === 0) return;
+        if (effectiveTargetDates.length === 0) return;
         if (transferMode === 'move') {
-            const targetDate = targetDates[0];
+            const targetDate = effectiveTargetDates[0];
             if (!targetDate) return;
             for (const event of selectedEvents) {
                 const chain: string[] = [];
@@ -158,7 +186,7 @@ export const RangeBoard: React.FC<RangeBoardProps> = ({ activeDate }) => {
             setSelectedCopyIds([]);
             return;
         }
-        const payload = targetDates.flatMap((date) => (
+        const payload = effectiveTargetDates.flatMap((date) => (
             selectedEvents.map((event) => {
                 const chain: string[] = [];
                 (event.originDates || []).forEach((origin) => {
