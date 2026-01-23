@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useCalendarStore, type CalendarEvent } from '../../store/calendarStore';
 import { formatDate } from '../../utils/dateUtils';
 import { Clock, Link as LinkIcon, StickyNote, Trash2, Edit3, Plus } from 'lucide-react';
@@ -16,6 +16,31 @@ export const EventBoard: React.FC<EventBoardProps> = ({ selectedDate }) => {
     if (!selectedDate) return null;
 
     const dateStr = formatDate(selectedDate);
+    const stateByDateRef = useRef<Record<string, {
+        draft: typeof draft;
+        editingId: string | null;
+        editingEvent: CalendarEvent | null;
+        sortOrder: 'time' | 'priority';
+    }>>({});
+
+    useEffect(() => {
+        const saved = stateByDateRef.current[dateStr];
+        if (saved) {
+            setDraft(saved.draft);
+            setEditingId(saved.editingId);
+            setEditingEvent(saved.editingEvent);
+            setSortOrder(saved.sortOrder);
+        }
+    }, [dateStr]);
+
+    useEffect(() => {
+        stateByDateRef.current[dateStr] = {
+            draft,
+            editingId,
+            editingEvent,
+            sortOrder
+        };
+    }, [dateStr, draft, editingId, editingEvent, sortOrder]);
     const dayEvents = useMemo(() => {
         const list = events[dateStr] || [];
         const priorityValue = (value?: number | null) => {

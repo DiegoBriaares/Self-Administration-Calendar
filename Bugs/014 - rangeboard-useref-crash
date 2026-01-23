@@ -1,0 +1,1 @@
+Fixes a RangeBoard crash caused by a missing useRef import when switching days.

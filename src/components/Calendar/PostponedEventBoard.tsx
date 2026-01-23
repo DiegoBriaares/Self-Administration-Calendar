@@ -1,16 +1,50 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useCalendarStore, type CalendarEvent } from '../../store/calendarStore';
 import { Clock, Link as LinkIcon, StickyNote, Trash2, Edit3, Plus } from 'lucide-react';
 
-export const PostponedEventBoard: React.FC = () => {
+interface PostponedEventBoardProps {
+    postponedView?: 'week' | 'all';
+    onViewChange?: (view: 'week' | 'all') => void;
+}
+
+export const PostponedEventBoard: React.FC<PostponedEventBoardProps> = ({ postponedView, onViewChange }) => {
     const { postponedEvents, viewMode, addPostponedEvent, deletePostponedEvent, editPostponedEvent } = useCalendarStore();
     const [draft, setDraft] = useState({ title: '', time: '', link: '', note: '', priority: '' });
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
     const [sortOrder, setSortOrder] = useState<'time' | 'priority'>('time');
+    const activeView = postponedView ?? 'all';
+    const stateByViewRef = useRef<Record<'week' | 'all', {
+        draft: typeof draft;
+        editingId: string | null;
+        editingEvent: CalendarEvent | null;
+        sortOrder: 'time' | 'priority';
+    }>>({
+        week: { draft: { title: '', time: '', link: '', note: '', priority: '' }, editingId: null, editingEvent: null, sortOrder: 'time' },
+        all: { draft: { title: '', time: '', link: '', note: '', priority: '' }, editingId: null, editingEvent: null, sortOrder: 'time' }
+    });
+
+    useEffect(() => {
+        const saved = stateByViewRef.current[activeView];
+        if (saved) {
+            setDraft(saved.draft);
+            setEditingId(saved.editingId);
+            setEditingEvent(saved.editingEvent);
+            setSortOrder(saved.sortOrder);
+        }
+    }, [activeView]);
+
+    useEffect(() => {
+        stateByViewRef.current[activeView] = {
+            draft,
+            editingId,
+            editingEvent,
+            sortOrder
+        };
+    }, [activeView, draft, editingId, editingEvent, sortOrder]);
 
     const dayEvents = useMemo(() => {
-        const list = postponedEvents || [];
+        const list = (postponedEvents || []).filter((event) => (event.postponedView ?? 'all') === activeView);
         const priorityValue = (value?: number | null) => {
             if (value === null || value === undefined) return Number.MAX_SAFE_INTEGER;
             return value;
@@ -31,7 +65,7 @@ export const PostponedEventBoard: React.FC = () => {
             }
             return a.title.localeCompare(b.title);
         });
-    }, [postponedEvents, sortOrder]);
+    }, [postponedEvents, sortOrder, activeView]);
 
     const getMetaLabel = (event: CalendarEvent) => {
         const timeLabel = event.startTime && event.startTime.trim() !== '' ? event.startTime : '--:--';
@@ -53,6 +87,22 @@ export const PostponedEventBoard: React.FC = () => {
                     <div className="text-xl text-stone-800 tracking-[0.2em]">Postponed Events</div>
                 </div>
                 <div className="flex items-center gap-3 text-[10px] font-mono text-stone-500 uppercase">
+                    <div className="flex items-center gap-1 rounded-full border border-orange-200 bg-white p-1">
+                        <button
+                            type="button"
+                            onClick={() => onViewChange?.('week')}
+                            className={`px-2 py-1 rounded-full text-[10px] font-mono uppercase tracking-[0.2em] transition-colors ${activeView === 'week' ? 'bg-orange-200 text-orange-700' : 'text-stone-500 hover:text-stone-700'}`}
+                        >
+                            This week events
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onViewChange?.('all')}
+                            className={`px-2 py-1 rounded-full text-[10px] font-mono uppercase tracking-[0.2em] transition-colors ${activeView === 'all' ? 'bg-orange-200 text-orange-700' : 'text-stone-500 hover:text-stone-700'}`}
+                        >
+                            All events
+                        </button>
+                    </div>
                     <label className="tracking-[0.2em]" htmlFor="postponed-event-order">Order</label>
                     <select
                         id="postponed-event-order"
@@ -70,7 +120,7 @@ export const PostponedEventBoard: React.FC = () => {
             </div>
 
             {dayEvents.length === 0 ? (
-                <div className="text-xs text-stone-500 font-mono">No entries. Add one below.</div>
+                <div className="text-xs text-stone-500 font-mono">No entries in this view. Add one below.</div>
             ) : (
                 <div className="flex flex-col gap-3">
                     {dayEvents.map((event: CalendarEvent) => (
@@ -188,10 +238,11 @@ export const PostponedEventBoard: React.FC = () => {
                                         link: draft.link,
                                         note: draft.note,
                                         originDates: editingEvent?.originDates || null,
-                                        wasPostponed: null
+                                        wasPostponed: null,
+                                        postponedView: editingEvent?.postponedView ?? activeView
                                     } as CalendarEvent);
                                 } else {
-                                    await addPostponedEvent({ ...draft, priority: parsePriority(draft.priority) });
+                                    await addPostponedEvent({ ...draft, priority: parsePriority(draft.priority), postponedView: activeView });
                                 }
                                 setEditingId(null);
                                 setEditingEvent(null);

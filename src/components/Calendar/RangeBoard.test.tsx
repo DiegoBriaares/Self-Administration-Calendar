@@ -62,7 +62,7 @@ describe('RangeBoard', () => {
         );
 
         const user = userEvent.setup();
-        render(<RangeBoard />);
+        render(<RangeBoard activeDate={new Date(2026, 0, 1)} />);
 
         await user.click(screen.getAllByRole('checkbox')[0]);
         await user.selectOptions(screen.getByLabelText('Action'), 'move');
@@ -82,7 +82,7 @@ describe('RangeBoard', () => {
 
         const targetDate = formatDate(new Date(2026, 0, 2));
         const user = userEvent.setup();
-        render(<RangeBoard />);
+        render(<RangeBoard activeDate={new Date(2026, 0, 1)} />);
 
         await screen.findByDisplayValue(targetDate);
         await user.click(screen.getAllByRole('checkbox')[0]);

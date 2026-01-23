@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CalendarRange, CornerDownLeft } from 'lucide-react';
 import { useCalendarStore } from '../../store/calendarStore';
 import { PostponedEventBoard } from './PostponedEventBoard';
@@ -7,6 +7,7 @@ import { PostponedRangeBoard } from './PostponedRangeBoard';
 
 export const PostponedEventsView: React.FC = () => {
     const { fetchPostponedEvents, navigateToCalendar } = useCalendarStore();
+    const [postponedView, setPostponedView] = useState<'week' | 'all'>('week');
 
     useEffect(() => {
         fetchPostponedEvents();
@@ -38,9 +39,9 @@ export const PostponedEventsView: React.FC = () => {
                 </div>
             </div>
 
-            <PostponedEventBoard />
-            <PostponedEventsInformation />
-            <PostponedRangeBoard />
+            <PostponedEventBoard postponedView={postponedView} onViewChange={setPostponedView} />
+            <PostponedEventsInformation postponedView={postponedView} />
+            <PostponedRangeBoard postponedView={postponedView} />
         </div>
     );
 };
