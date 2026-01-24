@@ -1,7 +1,7 @@
 # Add dev-only event purge script
 
 ## Summary
-- Add a dev-only script to delete all events and event notes from the plan-administration-management-system database.
+- Add a dev-only script to delete all events and event notes from the administration-management-plan-system database.
 - Guard the script against touching the production directory.
 
 ## Reason

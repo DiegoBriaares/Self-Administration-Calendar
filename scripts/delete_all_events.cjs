@@ -26,7 +26,7 @@ const forbiddenRoot = path.resolve(__dirname, '../../Calendario/cal-ap');
 
 if (isForbiddenDbPath(resolvedDbPath, forbiddenRoot)) {
     console.error(`Error: Refusing to delete data in ${forbiddenRoot}`);
-    console.error('This script is restricted to the dev plan-administration-management-system database only.');
+    console.error('This script is restricted to the dev administration-management-plan-system database only.');
     process.exit(1);
 }
 

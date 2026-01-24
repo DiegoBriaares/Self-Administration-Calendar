@@ -24,9 +24,9 @@ echo -e "${NC}"
 SOURCE_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Prompt for project name
-echo -e "${YELLOW}Enter project name (default: plan-administration-management-system):${NC}"
+echo -e "${YELLOW}Enter project name (default: administration-management-plan-system):${NC}"
 read -r PROJECT_NAME
-PROJECT_NAME=${PROJECT_NAME:-plan-administration-management-system}
+PROJECT_NAME=${PROJECT_NAME:-administration-management-plan-system}
 
 # Prompt for destination directory
 echo -e "${YELLOW}Enter destination directory (default: ~/Desktop):${NC}"

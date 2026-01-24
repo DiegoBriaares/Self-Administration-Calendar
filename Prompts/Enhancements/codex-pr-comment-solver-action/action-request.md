@@ -1,4 +1,4 @@
-prompt: Ok, good.  Please algo generate an Action in plan-administration-management-system/Prompts/Actions for SolvingAllPRCodexComments
+prompt: Ok, good.  Please algo generate an Action in administration-management-plan-system/Prompts/Actions for SolvingAllPRCodexComments
 
 answer: Added the SolvingAllPRCodexComments action prompt with steps for fetching, verifying, fixing, and summarizing Codex PR comments.
 

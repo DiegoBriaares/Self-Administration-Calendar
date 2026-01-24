@@ -38,7 +38,7 @@ sugestion: Call out any files that should always use the full formal name.
 
 ---
 
-prompt: If updated readmes me and evrything run this prompt /Users/digogonz/Desktop/Desarrollo/plan-administration-management-system/Prompts/Actions/CompiledPrompts/FetchAndStorePromptsAndGlobalPushAndDeploy/Prompt.agcomp
+prompt: If updated readmes me and evrything run this prompt /Users/digogonz/Desktop/Desarrollo/administration-management-plan-system/Prompts/Actions/CompiledPrompts/FetchAndStorePromptsAndGlobalPushAndDeploy/Prompt.agcomp
 
 answer: Opened the compiled prompt and proceeded with its required steps (prompt archive, enhancement note, changelog, and release actions).
 
