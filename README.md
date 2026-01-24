@@ -1,4 +1,4 @@
-# 📅 Calendar App
+# Plan Administration Management System (PAMS)
 
 A full-stack calendar application with event management, roles-based notes, and an admin panel.
 
@@ -12,7 +12,7 @@ A full-stack calendar application with event management, roles-based notes, and 
 
 ```bash
 # 1. Clone/copy the project
-cd /path/to/calendar-app
+cd /path/to/plan-administration-management-system
 
 # 2. Install frontend dependencies
 npm install
@@ -99,7 +99,7 @@ Or use the seeded admin account (if available):
 ## 📁 Project Structure
 
 ```
-calendar-app/
+plan-administration-management-system/
 ├── src/                    # Frontend React code
 │   ├── components/         # UI components
 │   ├── store/              # Zustand state management

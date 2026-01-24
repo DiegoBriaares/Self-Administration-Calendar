@@ -1,7 +1,7 @@
-prompt: Give a name to a file and a description inside it consistent to the changes based on the provided prompt, the Bug/Enhacenment resolved, and the actual changes. Choose an excellent and precise name and description. Store such file in /Users/digogonz/Desktop/Desarrollo/calendar-app/ChangeLog/
+prompt: Give a name to a file and a description inside it consistent to the changes based on the provided prompt, the Bug/Enhacenment resolved, and the actual changes. Choose an excellent and precise name and description. Store such file in /Users/digogonz/Desktop/Desarrollo/plan-administration-management-system/ChangeLog/
 
 Push the latest changes into the repo https://github.com/DiegoBriaares/Self-Administration-Calendar as a Pull Request. Give a name and description consistent to the changes based on the provided prompt, the Bug/Enhacenment resolved, and the actual changes. Choose an excellent and precise name and description.
-Deploy the changes to /Users/digogonz/Desktop/Calendario/cal-ap using /Users/digogonz/Desktop/Desarrollo/calendar-app/scripts/deploy_to_prod.sh   
+Deploy the changes to /Users/digogonz/Desktop/Calendario/cal-ap using /Users/digogonz/Desktop/Desarrollo/plan-administration-management-system/scripts/deploy_to_prod.sh   
 
 Then run scripts/archive_prod_snapshot.sh to backup this new version.
 
@@ -11,10 +11,10 @@ suggestion: Tell me if you want different PR naming.
 
 ---
 
-prompt: Please do not add the yoga-app to the commit; Give a name to a file and a description inside it consistent to the changes based on the provided prompt, the Bug/Enhacenment resolved, and the actual changes. Choose an excellent and precise name and description. Store such file in /Users/digogonz/Desktop/Desarrollo/calendar-app/ChangeLog/
+prompt: Please do not add the yoga-app to the commit; Give a name to a file and a description inside it consistent to the changes based on the provided prompt, the Bug/Enhacenment resolved, and the actual changes. Choose an excellent and precise name and description. Store such file in /Users/digogonz/Desktop/Desarrollo/plan-administration-management-system/ChangeLog/
 
 Push the latest changes into the repo https://github.com/DiegoBriaares/Self-Administration-Calendar as a Pull Request. Give a name and description consistent to the changes based on the provided prompt, the Bug/Enhacenment resolved, and the actual changes. Choose an excellent and precise name and description.
-Deploy the changes to /Users/digogonz/Desktop/Calendario/cal-ap using /Users/digogonz/Desktop/Desarrollo/calendar-app/scripts/deploy_to_prod.sh   
+Deploy the changes to /Users/digogonz/Desktop/Calendario/cal-ap using /Users/digogonz/Desktop/Desarrollo/plan-administration-management-system/scripts/deploy_to_prod.sh   
 
 Then run scripts/archive_prod_snapshot.sh to backup this new version.
 
@@ -24,10 +24,10 @@ suggestion: Tell me if you want to adjust the changelog wording.
 
 ---
 
-prompt: Good. Give a name to a file and a description inside it consistent to the changes based on the provided prompt, the Bug/Enhacenment resolved, and the actual changes. Choose an excellent and precise name and description. Store such file in /Users/digogonz/Desktop/Desarrollo/calendar-app/ChangeLog/
+prompt: Good. Give a name to a file and a description inside it consistent to the changes based on the provided prompt, the Bug/Enhacenment resolved, and the actual changes. Choose an excellent and precise name and description. Store such file in /Users/digogonz/Desktop/Desarrollo/plan-administration-management-system/ChangeLog/
 
 Push the latest changes into the repo https://github.com/DiegoBriaares/Self-Administration-Calendar as a Pull Request. Give a name and description consistent to the changes based on the provided prompt, the Bug/Enhacenment resolved, and the actual changes. Choose an excellent and precise name and description.
-Deploy the changes to /Users/digogonz/Desktop/Calendario/cal-ap using /Users/digogonz/Desktop/Desarrollo/calendar-app/scripts/deploy_to_prod.sh   
+Deploy the changes to /Users/digogonz/Desktop/Calendario/cal-ap using /Users/digogonz/Desktop/Desarrollo/plan-administration-management-system/scripts/deploy_to_prod.sh   
 
 Then run scripts/archive_prod_snapshot.sh to backup this new version.
 

@@ -6,7 +6,7 @@ suggestion: Test the dev startup with Node 20 before deploying.
 
 ---
 
-prompt: Excellent now erase the date from dev and if done please do merge request and snapthot save (merge thorugh pr and snapshot all in calndar-ap instead of calendar-app)
+prompt: Excellent now erase the date from dev and if done please do merge request and snapthot save (merge thorugh pr and snapshot all in calndar-ap instead of plan-administration-management-system)
 
 answer: Removed dev DB files, opened a PR, deployed to prod, and archived the production snapshot as requested.
 
