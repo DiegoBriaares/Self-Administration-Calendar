@@ -14,7 +14,7 @@ suggestion: Verify the UI flow in dev and confirm server creates the new table.
 
 ---
 
-prompt: Excellent! Run this prompt: /Users/digogonz/Desktop/Desarrollo/calendar-app/Prompts/Actions/CompiledPrompts/FetchAndStorePromptsAndGlobalPushAndDeploy/Prompt.agcomp
+prompt: Excellent! Run this prompt: /Users/digogonz/Desktop/Desarrollo/plan-administration-management-system/Prompts/Actions/CompiledPrompts/FetchAndStorePromptsAndGlobalPushAndDeploy/Prompt.agcomp
 
 answer: Archived prompts, added changelog and enhancement/bug notes, opened PR #15, ran deploy (server npm install failed with ENOTEMPTY), and archived the prod snapshot.
 

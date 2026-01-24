@@ -1,4 +1,4 @@
-# Aureum Calendar - Quick Start Guide
+# Plan Administration Management System (PAMS) - Quick Start Guide
 
 ## 🚀 Run Development Server
 

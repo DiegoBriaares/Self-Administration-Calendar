@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ╔═══════════════════════════════════════════════════════════════╗
-# ║           Calendar App Setup Script                           ║
+# ║     Plan Administration Management System Setup Script         ║
 # ║   Creates a fresh instance with clean database                ║
 # ╚═══════════════════════════════════════════════════════════════╝
 
@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}"
 echo "╔═══════════════════════════════════════════════════════════════╗"
-echo "║              📅 Calendar App Setup                            ║"
+echo "║  Plan Administration Management System (PAMS) Setup            ║"
 echo "╚═══════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
@@ -24,9 +24,9 @@ echo -e "${NC}"
 SOURCE_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Prompt for project name
-echo -e "${YELLOW}Enter project name (default: my-calendar-app):${NC}"
+echo -e "${YELLOW}Enter project name (default: plan-administration-management-system):${NC}"
 read -r PROJECT_NAME
-PROJECT_NAME=${PROJECT_NAME:-my-calendar-app}
+PROJECT_NAME=${PROJECT_NAME:-plan-administration-management-system}
 
 # Prompt for destination directory
 echo -e "${YELLOW}Enter destination directory (default: ~/Desktop):${NC}"

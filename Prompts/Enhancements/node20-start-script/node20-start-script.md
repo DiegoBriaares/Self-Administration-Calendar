@@ -6,7 +6,7 @@ suggestion: Run the script from the server directory to start with the correct N
 
 ---
 
-prompt: Excellent now erase the date from dev and if done please do merge request and snapthot save (merge thorugh pr and snapshot all in calndar-ap instead of calendar-app)
+prompt: Excellent now erase the date from dev and if done please do merge request and snapthot save (merge thorugh pr and snapshot all in calndar-ap instead of plan-administration-management-system)
 
 answer: Deployed without pushing to GitHub, removed dev DB files, and created a start_node20 script for reliable startup.
 

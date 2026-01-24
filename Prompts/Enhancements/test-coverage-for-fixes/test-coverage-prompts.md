@@ -7,8 +7,8 @@ suggestion: Run npm install to update the lockfile and then run npx vitest.
 ---
 
 prompt: Last login: Sat Jan 17 18:07:12 on ttys002
-digogonz@Diegos-MacBook-Pro ~ % cd Desktop/Desarrollo/calendar-app 
-digogonz@Diegos-MacBook-Pro calendar-app % npm install
+digogonz@Diegos-MacBook-Pro ~ % cd Desktop/Desarrollo/plan-administration-management-system 
+digogonz@Diegos-MacBook-Pro plan-administration-management-system % npm install
 npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
 
 added 65 packages, removed 46 packages, changed 2 packages, and audited 371 packages in 12s
@@ -17,9 +17,9 @@ added 65 packages, removed 46 packages, changed 2 packages, and audited 371 pack
   run `npm fund` for details
 
 found 0 vulnerabilities
-digogonz@Diegos-MacBook-Pro calendar-app % npx vitest
+digogonz@Diegos-MacBook-Pro plan-administration-management-system % npx vitest
 
- DEV  v4.0.16 /Users/digogonz/Desktop/Desarrollo/calendar-app
+ DEV  v4.0.16 /Users/digogonz/Desktop/Desarrollo/plan-administration-management-system
 
  ✓ scripts/delete_all_events_guard.test.ts (1 test) 3ms
  ✓ src/utils/priorityUtils.test.ts (3 tests) 2ms
@@ -96,9 +96,9 @@ suggestion: Re-run npx vitest.
 
 ---
 
-prompt: digogonz@Diegos-MacBook-Pro calendar-app % npx vitest
+prompt: digogonz@Diegos-MacBook-Pro plan-administration-management-system % npx vitest
 
- DEV  v4.0.16 /Users/digogonz/Desktop/Desarrollo/calendar-app
+ DEV  v4.0.16 /Users/digogonz/Desktop/Desarrollo/plan-administration-management-system
 
  ✓ scripts/delete_all_events_guard.test.ts (1 test) 1ms
  ✓ src/utils/priorityUtils.test.ts (3 tests) 1ms
@@ -119,9 +119,9 @@ suggestion: Re-run npx vitest.
 
 ---
 
-prompt: digogonz@Diegos-MacBook-Pro calendar-app % npx vitest
+prompt: digogonz@Diegos-MacBook-Pro plan-administration-management-system % npx vitest
 
- DEV  v4.0.16 /Users/digogonz/Desktop/Desarrollo/calendar-app
+ DEV  v4.0.16 /Users/digogonz/Desktop/Desarrollo/plan-administration-management-system
 
  ✓ scripts/delete_all_events_guard.test.ts (1 test) 3ms
  ✓ src/utils/priorityUtils.test.ts (3 tests) 1ms
