@@ -1,4 +1,4 @@
-prompt: Add a new plan-administration-management-system/Tests if you will for folding inside if Bugs or Enhancemenets
+prompt: Add a new administration-management-plan-system/Tests if you will for folding inside if Bugs or Enhancemenets
 
 answer: Added Tests/Bugs and Tests/Enhancements folders for organizing test-related notes.
 

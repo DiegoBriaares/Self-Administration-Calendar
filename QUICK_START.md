@@ -1,4 +1,4 @@
-# Plan Administration Management System (PAMS) - Quick Start Guide
+# Administration Management Plan System (AMPS) - Quick Start Guide
 
 ## 🚀 Run Development Server
 

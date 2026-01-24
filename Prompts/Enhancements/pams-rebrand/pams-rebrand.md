@@ -1,4 +1,4 @@
-prompt: Rename the repository to "Plan Administration Management System"
+prompt: Rename the repository to "Administration Management Plan System"
 
 answer: Updated package metadata and primary docs/title/setup labels to use the new name.
 
@@ -30,15 +30,15 @@ sugestion: Rename the repo on GitHub or share the final URL.
 
 ---
 
-prompt: Change short name where it corrresposndos in whole domains for PAMS wherever is more convienent, where conveneient is that need is to be formal use whole name Plan Administration Management System, an where more informal use PAMS
+prompt: Change short name where it corrresposndos in whole domains for AMPS wherever is more convienent, where conveneient is that need is to be formal use whole name Administration Management Plan System, an where more informal use AMPS
 
-answer: Applied PAMS as the informal name and kept the full formal name in user-facing places, restoring the GitHub URL references.
+answer: Applied AMPS as the informal name and kept the full formal name in user-facing places, restoring the GitHub URL references.
 
 sugestion: Call out any files that should always use the full formal name.
 
 ---
 
-prompt: If updated readmes me and evrything run this prompt /Users/digogonz/Desktop/Desarrollo/plan-administration-management-system/Prompts/Actions/CompiledPrompts/FetchAndStorePromptsAndGlobalPushAndDeploy/Prompt.agcomp
+prompt: If updated readmes me and evrything run this prompt /Users/digogonz/Desktop/Desarrollo/administration-management-plan-system/Prompts/Actions/CompiledPrompts/FetchAndStorePromptsAndGlobalPushAndDeploy/Prompt.agcomp
 
 answer: Opened the compiled prompt and proceeded with its required steps (prompt archive, enhancement note, changelog, and release actions).
 

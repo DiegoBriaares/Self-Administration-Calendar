@@ -46,7 +46,7 @@ suggestion: Confirm dev or prod target.
 
 ---
 
-prompt: no men in the plan-administration-management-system one !
+prompt: no men in the administration-management-plan-system one !
 
 answer: Confirmed dev target and prepared to restore snapshot 7 into the dev server with backup.
 

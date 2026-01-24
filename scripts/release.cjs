@@ -10,7 +10,7 @@ const DEFAULT_PASSWORD = 'admin';
 const now = new Date();
 const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
 const releaseDirName = `release_${timestamp}`;
-const targetDir = path.resolve(__dirname, '../../', releaseDirName); // Create sibling to plan-administration-management-system
+const targetDir = path.resolve(__dirname, '../../', releaseDirName); // Create sibling to administration-management-plan-system
 
 // Paths
 const generateScript = path.resolve(__dirname, 'generate_prod.cjs');
