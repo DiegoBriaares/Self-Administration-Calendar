@@ -1,1 +1,1 @@
-Rebranded the project to Plan Administration Management System (PAMS), applying the formal name in user-facing surfaces and the PAMS shorthand in informal references.
+Rebranded the project to Administration Management Plan System (AMPS), applying the formal name in user-facing surfaces and the AMPS shorthand in informal references.

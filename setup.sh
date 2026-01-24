@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ╔═══════════════════════════════════════════════════════════════╗
-# ║     Plan Administration Management System Setup Script         ║
+# ║     Administration Management Plan System Setup Script         ║
 # ║   Creates a fresh instance with clean database                ║
 # ╚═══════════════════════════════════════════════════════════════╝
 
@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}"
 echo "╔═══════════════════════════════════════════════════════════════╗"
-echo "║  Plan Administration Management System (PAMS) Setup            ║"
+echo "║  Administration Management Plan System (AMPS) Setup            ║"
 echo "╚═══════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
 
